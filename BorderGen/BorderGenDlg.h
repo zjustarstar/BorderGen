@@ -3,7 +3,23 @@
 //
 
 #pragma once
+#include "afxwin.h"
+#include <vector>
+#include <string>
+#include "afxcmn.h"
 
+using namespace std;
+
+#define THREAD_NUM    3
+
+struct struProgress {
+	string strFile;   //当前处理的文件;
+	int    nProgess;  //进度;
+	struProgress() {
+		strFile = "";
+		nProgess = 0;
+	}
+};
 
 // CBorderGenDlg 对话框
 class CBorderGenDlg : public CDialogEx
@@ -12,6 +28,10 @@ class CBorderGenDlg : public CDialogEx
 public:
 	CBorderGenDlg(CWnd* pParent = NULL);	// 标准构造函数
 
+	std::vector<string>   m_vecFiles;
+	CCriticalSection      m_csFiles;  //用于vecFiles的共享访问;
+	struProgress        * m_pStruProg; //存储每个线程处理的文件及进度信息;从1开始，不是0
+
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_BORDERGEN_DIALOG };
@@ -19,7 +39,11 @@ public:
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
+private:
+	CString              m_strFilePath;
+	CWinThread         * m_pDealThread;
 
+	void ListAllFiles(CString strFilePath);
 
 // 实现
 protected:
@@ -31,4 +55,17 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+public:
+	afx_msg void OnBnClickedButtonBrowser();
+	CEdit m_editFilePath;
+	CListBox m_lbFiles;
+	CStatic m_sttTotal;
+	afx_msg void OnLbnSelchangeList1();
+	afx_msg void OnBnClickedButtonBatchprocess();
+	CRichEditCtrl m_reLog;
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnDestroy();
+	CProgressCtrl m_ProgressBar;
+	CStatic m_sttProgress;
+	CButton m_btnStart;
 };
