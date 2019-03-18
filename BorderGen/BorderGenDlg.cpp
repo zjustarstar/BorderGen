@@ -7,7 +7,7 @@
 #include "BorderGenDlg.h"
 #include "afxdialogex.h"
 #include "ImgQuantify.h"
-
+#include <io.h>
 #include <opencv2\opencv.hpp>
 
 using namespace std;
@@ -57,13 +57,19 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		nFileId++;
 		pDlg->m_csFiles.Unlock();
 
+		//要保存的图片的路径;
+		string strBorder = pDlg->GetSaveFile(strFile);
 		//写日志;
+		string s(pDlg->m_strFilePath.GetBuffer(0));
+		strFile = s + "\\" + strFile;
 		pDlg->m_pStruProg[nFileId].strFile = strFile;
 
 		//border文件命名;
-		int nIndex = strFile.rfind('.');
+		/*int nIndex = strFile.rfind('.');
 		string strBorder = strFile.substr(0, nIndex);
 		strBorder = strBorder.append("_border.jpg");
+		*/
+		
 
 		//生成边界文件;
 		int * p = &(pDlg->m_pStruProg[nFileId].nProgess);
@@ -124,7 +130,6 @@ END_MESSAGE_MAP()
 
 
 // CBorderGenDlg 消息处理程序
-
 BOOL CBorderGenDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
@@ -159,7 +164,7 @@ BOOL CBorderGenDlg::OnInitDialog()
 
 	m_pStruProg = NULL;
 
-	m_ProgressBar.SetRange(1, 100);
+	m_ProgressBar.SetRange(0, 100);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -213,6 +218,32 @@ HCURSOR CBorderGenDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+//将文件名从d:\\xxx.jpg改为d:\\border_result\\.jpg;
+string CBorderGenDlg::GetSaveFile(string &strFile) {
+
+	CString strBorderFolder = m_strFilePath;
+	strBorderFolder = strBorderFolder + "\\" + BORDER_FOLDER;
+
+	string strFileName="";
+	if (!PathFileExists(strBorderFolder))
+	{
+		//原始文件同文件夹下;
+		strFileName.append(m_strFilePath.GetBuffer(0));
+	}
+	else {
+		//放在新建的border文件夹下;
+		strFileName.append(strBorderFolder.GetBuffer(0));
+	}
+
+	strFileName = strFileName + "\\" + strFile;
+
+	//border文件命名;
+	int nIndex = strFileName.rfind('.');
+	string strBorder = strFileName.substr(0, nIndex);
+	strBorder = strBorder.append("_border.jpg");
+
+	return strBorder;
+}
 
 
 void CBorderGenDlg::OnBnClickedButtonBrowser()
@@ -258,13 +289,11 @@ void CBorderGenDlg::OnBnClickedButtonBrowser()
 	{
 		CString strFileName;
 		m_lbFiles.GetText(i, strFileName);
-		strFileName = m_strFilePath + "\\" + strFileName;
 		string s(strFileName.GetBuffer(0));
 		m_vecFiles.push_back(s);
 	}
 
 }
-
 
 void CBorderGenDlg::ListAllFiles(CString strFilePath)
 {
@@ -338,6 +367,11 @@ void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 {
 	nFileId = 0;  
 
+	CString strBorderFolder = m_strFilePath;
+	strBorderFolder = strBorderFolder + "\\" + BORDER_FOLDER;
+	if (!PathFileExists(strBorderFolder))
+		CreateDirectory(strBorderFolder,NULL);
+
 	// TODO: 在此添加控件通知处理程序代码
 	for (int i = 0; i < THREAD_NUM; i++)
 		AfxBeginThread(ThreadGenBorder, (void *)this, THREAD_PRIORITY_HIGHEST);
@@ -388,7 +422,11 @@ void CBorderGenDlg::OnTimer(UINT_PTR nIDEvent)
 
 		//几乎快处理完了;
 		if (nPos>=99)
+		{
 			m_btnStart.EnableWindow(TRUE);
+			m_sttProgress.SetWindowText("0%");
+			m_ProgressBar.SetPos(0);
+		}
 	}
 }
 

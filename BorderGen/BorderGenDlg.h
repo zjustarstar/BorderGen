@@ -10,7 +10,8 @@
 
 using namespace std;
 
-#define THREAD_NUM    3
+#define THREAD_NUM    4
+#define BORDER_FOLDER "border_result"
 
 struct struProgress {
 	string strFile;   //当前处理的文件;
@@ -28,9 +29,11 @@ class CBorderGenDlg : public CDialogEx
 public:
 	CBorderGenDlg(CWnd* pParent = NULL);	// 标准构造函数
 
+	CString               m_strFilePath;  //文件夹路径;
 	std::vector<string>   m_vecFiles;
 	CCriticalSection      m_csFiles;  //用于vecFiles的共享访问;
 	struProgress        * m_pStruProg; //存储每个线程处理的文件及进度信息;从1开始，不是0
+	string  GetSaveFile(string &strFile);
 
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -40,10 +43,11 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 private:
-	CString              m_strFilePath;
+	
 	CWinThread         * m_pDealThread;
 
 	void ListAllFiles(CString strFilePath);
+
 
 // 实现
 protected:
