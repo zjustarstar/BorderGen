@@ -660,7 +660,8 @@ bool CImgQuantify::MainProc(string strBorderFile,int * nProgress){
 	//nSize = 1;
 	for (int i = 0; i < nSize; i++)
 	{
-		if (m_bVisit[i]) continue;
+		//已经访问过的,不再访问;
+		if (m_bVisit[i] || m_pIndexMap[i]) continue;
 
 		Vec3b v = m_pData[i];
 

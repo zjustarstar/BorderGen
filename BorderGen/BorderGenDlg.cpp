@@ -279,9 +279,12 @@ void CBorderGenDlg::OnBnClickedButtonBrowser()
 
 	//保存的文件及进度信息;
 	if (m_pStruProg)
+	{
 		delete[] m_pStruProg;
-	else
-		m_pStruProg = new struProgress[nSize+1];  //下标0不用;
+		m_pStruProg = NULL;
+	}
+
+	m_pStruProg = new struProgress[nSize+1];  //下标0不用;
 
 	//将所有图像文件保存在vector中;
 	m_vecFiles.clear();
