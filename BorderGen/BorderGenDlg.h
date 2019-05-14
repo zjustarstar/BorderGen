@@ -29,11 +29,13 @@ class CBorderGenDlg : public CDialogEx
 public:
 	CBorderGenDlg(CWnd* pParent = NULL);	// 标准构造函数
 
-	CString               m_strFilePath;  //文件夹路径;
-	std::vector<string>   m_vecFiles;
-	CCriticalSection      m_csFiles;  //用于vecFiles的共享访问;
-	struProgress        * m_pStruProg; //存储每个线程处理的文件及进度信息;从1开始，不是0
-	string  GetSaveFile(string &strFile);
+	CString              m_strFilePath;  //文件夹路径;
+	std::vector<string>  m_vecFiles;
+	CCriticalSection     m_csFiles;  //用于vecFiles的共享访问;
+	struProgress       * m_pStruProg; //存储每个线程处理的文件及进度信息;从1开始，不是0
+	bool                 m_bSimpleVersion;   //哪种方法
+	bool                 m_bWhiteBG;         //生成图的背景颜色;
+	string  GetSaveFile(string strExt, string &strFile);
 
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -44,10 +46,8 @@ public:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 private:
 	
-	CWinThread         * m_pDealThread;
-
+	CWinThread   * m_pDealThread;
 	void ListAllFiles(CString strFilePath);
-
 
 // 实现
 protected:
@@ -72,4 +72,13 @@ public:
 	CProgressCtrl m_ProgressBar;
 	CStatic m_sttProgress;
 	CButton m_btnStart;
+	int   m_nMinArea;
+	bool  m_bGenColorMap;
+	// 启动的线程数
+	short m_nThreadNum;
+	afx_msg void OnBnClickedRadioCompleximg();
+	afx_msg void OnBnClickedRadioSimpleimg();
+	afx_msg void OnBnClickedRadioBlackbg();
+	afx_msg void OnBnClickedRadioWhitebg();
+	afx_msg void OnBnClickedCheckGencolormap();
 };

@@ -21,7 +21,7 @@ public:
 	CImgQuantify(Mat img);
 	virtual ~CImgQuantify();
 
-	bool MainProc(string strBorderFile, int * nProgress);
+	bool MainProc(string strBorderFile, int * nProgress, bool bWithBg=false);
 
 private:
 	//image
@@ -32,7 +32,7 @@ private:
 	void GenMapImageByIndex(string strFile, int nIndex, Vec3b v);
 	//生成最终的分区图
 	void GenFinalMap(string strFile);
-	void GenBorderImg(string strFile);
+	void GenBorderImg(string strFile, bool bWithBg=false);
 
 	//seeds;
 	bool DealConnection(int nIndex, bool * pVisitMap, vector<int> &vecConn, bool b8=true);

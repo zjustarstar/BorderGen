@@ -7,6 +7,7 @@
 #include "BorderGenDlg.h"
 #include "afxdialogex.h"
 #include "ImgQuantify.h"
+#include "PaintImgDealer.h"
 #include <io.h>
 #include <opencv2\opencv.hpp>
 
@@ -58,24 +59,36 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		pDlg->m_csFiles.Unlock();
 
 		//要保存的图片的路径;
-		string strBorder = pDlg->GetSaveFile(strFile);
+		string strBorder = pDlg->GetSaveFile("border",strFile);
+		string strColor  = pDlg->GetSaveFile("color", strFile);
 		//写日志;
 		string s(pDlg->m_strFilePath.GetBuffer(0));
 		strFile = s + "\\" + strFile;
 		pDlg->m_pStruProg[nFileId].strFile = strFile;
-
-		//border文件命名;
-		/*int nIndex = strFile.rfind('.');
-		string strBorder = strFile.substr(0, nIndex);
-		strBorder = strBorder.append("_border.jpg");
-		*/
 		
-
 		//生成边界文件;
 		int * p = &(pDlg->m_pStruProg[nFileId].nProgess);
 		Mat img = imread(strFile);
-		CImgQuantify iq(img);
-		iq.MainProc(strBorder, p);
+
+		//简单图的处理;
+		if (pDlg->m_bSimpleVersion) {
+			CImgQuantify iq(img);
+			iq.MainProc(strBorder, p);
+		}
+		//复杂图的处理;
+		else
+		{
+			CPaintImgDealer pid(img);
+			struInParam ip;
+			ip.strBorderFile = strBorder;
+			//如果要生成填色图;
+			if (pDlg->m_bGenColorMap)
+				ip.strColorFile = strColor;
+			ip.nProgress = p;
+			ip.bWhiteBG = pDlg->m_bWhiteBG;
+			pid.MainProc(ip);
+		}
+
 	}
 
 	return 1;
@@ -97,10 +110,11 @@ END_MESSAGE_MAP()
 
 // CBorderGenDlg 对话框
 
-
-
 CBorderGenDlg::CBorderGenDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_BORDERGEN_DIALOG, pParent)
+	, m_nMinArea(100)
+	, m_nThreadNum(4)
+	, m_bGenColorMap(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -115,6 +129,9 @@ void CBorderGenDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_PROGRESS1, m_ProgressBar);
 	DDX_Control(pDX, IDC_STATIC_PROGRESS, m_sttProgress);
 	DDX_Control(pDX, IDC_BUTTON_BATCHPROCESS, m_btnStart);
+	DDX_Text(pDX, IDC_EDIT_PARAM_THREADNUM, m_nThreadNum);
+	DDX_Text(pDX, IDC_EDIT_PARAM_REGIONMINSIZE, m_nMinArea);
+	//DDX_Text(pDX, IDC_CHECK_GENCOLORMAP, m_bGenColorMap);
 }
 
 BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
@@ -126,6 +143,11 @@ BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_BATCHPROCESS, &CBorderGenDlg::OnBnClickedButtonBatchprocess)
 	ON_WM_TIMER()
 	ON_WM_DESTROY()
+	ON_BN_CLICKED(IDC_RADIO_COMPLEXIMG, &CBorderGenDlg::OnBnClickedRadioCompleximg)
+	ON_BN_CLICKED(IDC_RADIO_SIMPLEIMG, &CBorderGenDlg::OnBnClickedRadioSimpleimg)
+	ON_BN_CLICKED(IDC_RADIO_BLACKBG, &CBorderGenDlg::OnBnClickedRadioBlackbg)
+	ON_BN_CLICKED(IDC_RADIO_WHITEBG, &CBorderGenDlg::OnBnClickedRadioWhitebg)
+	ON_BN_CLICKED(IDC_CHECK_GENCOLORMAP, &CBorderGenDlg::OnBnClickedCheckGencolormap)
 END_MESSAGE_MAP()
 
 
@@ -162,7 +184,18 @@ BOOL CBorderGenDlg::OnInitDialog()
 	//
 	SetTimer(1000, 1000, NULL);
 
-	m_pStruProg = NULL;
+	m_pStruProg      = NULL;
+	m_bSimpleVersion = false;
+	m_bWhiteBG       = true;
+
+	CButton * pBtnSVersion = (CButton *)GetDlgItem(IDC_RADIO_SIMPLEIMG);
+	CButton * pBtnCVersion = (CButton *)GetDlgItem(IDC_RADIO_COMPLEXIMG);
+	CButton * pBtnBlackBG = (CButton *)GetDlgItem(IDC_RADIO_BLACKBG);
+	CButton * pBtnWhiteBG = (CButton *)GetDlgItem(IDC_RADIO_WHITEBG);
+	pBtnCVersion->SetCheck(1);
+	pBtnSVersion->SetCheck(0);
+	pBtnWhiteBG->SetCheck(1);
+	pBtnBlackBG->SetCheck(0);
 
 	m_ProgressBar.SetRange(0, 100);
 
@@ -218,8 +251,9 @@ HCURSOR CBorderGenDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-//将文件名从d:\\xxx.jpg改为d:\\border_result\\.jpg;
-string CBorderGenDlg::GetSaveFile(string &strFile) {
+//将文件名从d:\\xxx.jpg改为d:\\xxx_strExt\\.jpg;
+
+string CBorderGenDlg::GetSaveFile(string strExt,string &strFile) {
 
 	CString strBorderFolder = m_strFilePath;
 	strBorderFolder = strBorderFolder + "\\" + BORDER_FOLDER;
@@ -240,7 +274,8 @@ string CBorderGenDlg::GetSaveFile(string &strFile) {
 	//border文件命名;
 	int nIndex = strFileName.rfind('.');
 	string strBorder = strFileName.substr(0, nIndex);
-	strBorder = strBorder.append("_border.jpg");
+	strBorder = strBorder + "_" + strExt;
+	strBorder = strBorder.append(".jpg");
 
 	return strBorder;
 }
@@ -392,7 +427,7 @@ void CBorderGenDlg::OnTimer(UINT_PTR nIDEvent)
 	if (!m_pStruProg)
 		return;
 
-	CString strTotalText = "**************开始处理**************\n";
+	CString strTotalText = "**************点击[开始处理]按钮，进行处理**************\n";
 	int nFinished = 0;
 	for (int i = 1; i <= m_lbFiles.GetCount(); i++){
 		string strFile   = m_pStruProg[i].strFile;
@@ -402,7 +437,9 @@ void CBorderGenDlg::OnTimer(UINT_PTR nIDEvent)
 			continue;
 
 		CString strText;
-		if (nProgress <= 98)
+		if (nProgress == 0)
+			strText.Format("开始预处理文件:%s.....\n", strFile.c_str());
+		else if ((nProgress > 0) && (nProgress < 99))
 			strText.Format("开始处理文件:%s，进度为:%d%%\n", strFile.c_str(), m_pStruProg[i].nProgess);
 		else
 		{
@@ -443,4 +480,43 @@ void CBorderGenDlg::OnDestroy()
 		delete[] m_pStruProg;
 
 	m_vecFiles.clear();
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioCompleximg()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_bSimpleVersion = false;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioSimpleimg()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_bSimpleVersion = true;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioBlackbg()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_bWhiteBG = false;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioWhitebg()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_bWhiteBG = true;
+}
+
+
+void CBorderGenDlg::OnBnClickedCheckGencolormap()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CButton * pButton = (CButton *)GetDlgItem(IDC_CHECK_GENCOLORMAP);
+	if (pButton->GetCheck())
+		m_bGenColorMap = true;
+	else
+		m_bGenColorMap = false;
 }

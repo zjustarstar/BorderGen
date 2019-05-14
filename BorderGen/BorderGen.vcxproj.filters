@@ -36,6 +36,12 @@
     <ClInclude Include="ImgQuantify.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="PaintImgDealer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="L0Smooth.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BorderGen.cpp">
@@ -48,6 +54,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ImgQuantify.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PaintImgDealer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="L0Smooth.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

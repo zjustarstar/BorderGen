@@ -1,7 +1,8 @@
 #include "stdafx.h"
-#include "ImgQuantify.h"  
+#include "ImgQuantify.h"
 
-#define ENABLE_GENERATE_INDEXMAP    0   //是否生成indexmap
+
+#define ENABLE_GENERATE_INDEXMAP    1   //是否生成indexmap
 
 bool IsEqual(Vec3b v, Vec3b dst){
 	bool n1 = abs(v[0] - dst[0]) < COLOR_SIMILAR_THRE;
@@ -234,7 +235,6 @@ bool CImgQuantify::DealConnection(int nIndex, Vec3b v, bool * pVisitMap, vector<
 	for (int c = -1; c <= 1; c++)
 	{
 		if (r==0 && c==0) continue; //自己不加入;
-		//if (r!=0 && c!=0) continue; //四联通;
 
 		int nNewR = nRow + r;
 		int nNewC = nCol + c;
@@ -327,8 +327,8 @@ bool CImgQuantify::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc){
 	if (!m_pData)
 		return false;
 
-	//初始化一个本轮种子查找的访问痕迹表;
-	memset(m_bVisit, 0, sizeof(bool)*m_nH*m_nW);
+	//初始化一个本轮种子查找的访问痕迹表; 该函数比较耗时;
+	//memset(m_bVisit, 0, sizeof(bool)*m_nH*m_nW);
 	
 	vector<int> vecSeedLoc;      //保存相同值的坐标，该栈不停的压入弹出，用于找到所有相近值的种子像素;
 	Vec3b v = m_pData[nIndex];
@@ -348,8 +348,13 @@ bool CImgQuantify::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc){
 		vdSum[i] = vSum[i];  
 	}
 	
-	for (int i = 0; i < vecConn.size(); i++)
+	//第一个种子找到的八连通区域;
+	int ii = vecConn.size();
+	for (int i = 0; i < ii; i++)
+	{
 		vecSeedLoc.push_back(vecConn[i]);
+		m_bVisit[vecConn[i]] = true;
+	}
 
 	int nTotalNum = 0;
 	while (!vecSeedLoc.empty())
@@ -364,7 +369,8 @@ bool CImgQuantify::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc){
 		//不停找相同的种子;
 		vecConn.clear();
 		DealConnection(ind,vAvg, m_bVisit, vecConn,vSum);
-		for (int i = 0; i < vecConn.size(); i++)
+		int k = vecConn.size();
+		for (int i = 0; i < k; i++)
 			vecSeedLoc.push_back(vecConn[i]);
 
 		//更新种子平均值;
@@ -425,7 +431,8 @@ bool CImgQuantify::UpdateRegionInfo(Vec3b v, vector<int> vecLoc, int &nNewIndex)
 	}
 	
 	//更新区域信息;
-	for (int i = 0; i < vecLoc.size(); i++)
+	int s = vecLoc.size();
+	for (int i = 0; i < s; i++)
 	{
 		int k = vecLoc[i];
 		m_pIndexMap[k] = nNewIndex;
@@ -498,7 +505,8 @@ int CImgQuantify::FindSimilarSeedIndex(int n,int nRadius){
 	//寻找最接近的;
 	Vec3b v = m_pData[n];
 	int   nMatchInd = 0;
-	for (int i = 0; i < vecIndex.size(); i++)
+	int s = vecIndex.size();
+	for (int i = 0; i < s; i++)
 	{
 		double MinDist = 255*255*3+1;
 	
@@ -560,10 +568,11 @@ void CImgQuantify::DealResidual(){
 	delete[] pTemp;
 }
 
-//生成只有边界线的图像;
-void CImgQuantify::GenBorderImg(string strFile){
+//生成只有边界线的图像;bWithBg表示是否带有原图作为背景;
+void CImgQuantify::GenBorderImg(string strFile,bool bWithBg){
 	Mat m = m_OriImg.clone();
-	m.setTo(0);
+	if (!bWithBg)
+		m.setTo(0);  //背景设为白色;
 
 	Vec3b v(255, 255, 255);
 	int nRow, nCol;
@@ -651,22 +660,22 @@ Vec3b CImgQuantify::GetMeanV(vector<int> vecLoc){
 	return vv;
 }
 
-//将边界图保存在strBorderFile文件中,nProgess表示进度;
-bool CImgQuantify::MainProc(string strBorderFile,int * nProgress){
+//将边界图保存在strBorderFile文件中,nProgess表示进度;bWithBg，表示是否带有原图背景
+bool CImgQuantify::MainProc(string strBorderFile,int * nProgress,bool bWithBg){
 	vector<int> vecLoc;
 	int nCurIndex = 1;
 
 	int nSize = m_nW * m_nH;
-	//nSize = 1;
 	for (int i = 0; i < nSize; i++)
 	{
+		//进度...
+		float f = i * 1.0 / nSize;
+		(*nProgress) = int(f * 100 + 0.5);
+
 		//已经访问过的,不再访问;
-		if (m_bVisit[i] || m_pIndexMap[i]) continue;
+		if (m_pIndexMap[i]) continue;
 
 		Vec3b v = m_pData[i];
-
-		float f = i * 1.0 / nSize;
-		(*nProgress) = int(f * 100);
 
 		vecLoc.clear();
 		if (FindSeed_ByAvg(i,vecLoc))
@@ -677,10 +686,6 @@ bool CImgQuantify::MainProc(string strBorderFile,int * nProgress){
 
 			v = GetMeanV(vecLoc);
 			printf("Find Seed! Index=%d,Num=%d, Value=%d,%d,%d \n", nCurIndex, vecLoc.size(), v[2], v[1], v[0]);			
-
-			//填写访问记录;
-			for (int j = 0; j < vecLoc.size(); j++)
-				m_bVisit[vecLoc[j]] = true;
 			
 			//更新区域信息;如果当前是新的区域，则更新index;
 			//否则，返回与该区域类似的区域;
@@ -696,10 +701,16 @@ bool CImgQuantify::MainProc(string strBorderFile,int * nProgress){
 				GenMapImageByIndex(strFile, k, Vec3b(255, 255, 255));
 			}
 		}
+
+		//重新恢复访问记录的状态,保持m_bVisit变量在下一次访问前都置0;
+		int s = vecLoc.size();
+		for (int j = s - 1; j >= 0; j--)
+			m_bVisit[vecLoc[j]] = false;
+
 	}
 
 	//保存未处理residual区域的图;
-	//GenMapImageByIndex("residual.jpg", 0, Vec3b(255, 255, 255));
+	GenMapImageByIndex("residual.jpg", 0, Vec3b(255, 255, 255));
 	//处理未有归属区域的;
 	DealResidual();
 
