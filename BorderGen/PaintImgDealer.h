@@ -24,12 +24,14 @@ typedef struct struInParam {
 	int  * nProgress;       //表示进度;
 	bool   bRGBData;        //使用的颜色空间;
 	bool   bWhiteBG;        //生成边界文件的背景默认是白色的;
+	bool   bThickBd;        //是否生成粗边界;
 	struInParam() {
 		strBorderFile = "";
 		strColorFile = "";
 		nProgress = NULL;
 		bRGBData  = true;
 		bWhiteBG  = true;
+		bThickBd  = true;
 	}
 };
 
@@ -58,7 +60,7 @@ public:
 	//生成同值index区域的图;
 	void GenMapImageByIndex(string strFile, int nIndex, Vec3b v);
 	void GenMapImageByRegColor(string strFile);
-	void GenBorderImg(string strFile, bool bWhiteBG=true);
+	void GenBorderImg(string strFile, bool bWhiteBG=true, bool bThickBd=true);
 
 	//regions;
 	bool CheckSameRegion(Vec3b v, int * nInd);

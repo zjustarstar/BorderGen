@@ -196,8 +196,11 @@
   <ItemGroup>
     <ClInclude Include="BorderGen.h" />
     <ClInclude Include="BorderGenDlg.h" />
+    <ClInclude Include="ClosureDetDlg.h" />
+    <ClInclude Include="ClosureDetector.h" />
     <ClInclude Include="ImgQuantify.h" />
     <ClInclude Include="L0Smooth.h" />
+    <ClInclude Include="MainDlg.h" />
     <ClInclude Include="PaintImgDealer.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
@@ -206,8 +209,11 @@
   <ItemGroup>
     <ClCompile Include="BorderGen.cpp" />
     <ClCompile Include="BorderGenDlg.cpp" />
+    <ClCompile Include="ClosureDetDlg.cpp" />
+    <ClCompile Include="ClosureDetector.cpp" />
     <ClCompile Include="ImgQuantify.cpp" />
     <ClCompile Include="L0Smooth.cpp" />
+    <ClCompile Include="MainDlg.cpp" />
     <ClCompile Include="PaintImgDealer.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

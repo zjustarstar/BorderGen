@@ -775,8 +775,8 @@ void CPaintImgDealer::IndexMapDilate(vector<int> &vecConn) {
 }
 
 
-//生成只有边界线的图像;bWhiteBG表示边界图背景是白色的;
-void CPaintImgDealer::GenBorderImg(string strFile,bool bWhiteBG) {
+//生成只有边界线的图像;bWhiteBG表示边界图背景是白色的;bThickBd表示边界是粗的，3个像素.如果是细的，则是单像素的;
+void CPaintImgDealer::GenBorderImg(string strFile,bool bWhiteBG,bool bThickBd) {
 	if (strFile.empty())
 		return;
 
@@ -808,6 +808,20 @@ void CPaintImgDealer::GenBorderImg(string strFile,bool bWhiteBG) {
 			if (m_pIndexMap[i + m_nW] != nCurInd)
 				m.at<Vec3b>(nRow, nCol) = v;
 		}
+	}
+
+	if (bThickBd){
+		Mat kern = getStructuringElement(MORPH_RECT, Size(3, 3));
+		Mat dilate_img;
+		if (bWhiteBG) {
+			bitwise_not(m, m);
+			//膨胀
+			dilate(m, m, kern);
+			bitwise_not(m, m);
+		}
+		else
+			//膨胀
+			dilate(m, m, kern);
 	}
 
 	imwrite(strFile, m);
@@ -877,5 +891,5 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 	DealResidual();
 
 	GenMapImageByRegColor(param.strColorFile);
-	GenBorderImg(param.strBorderFile,param.bWhiteBG);
+	GenBorderImg(param.strBorderFile,param.bWhiteBG,param.bThickBd);
 }

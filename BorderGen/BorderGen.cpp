@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "BorderGen.h"
+#include "MainDlg.h"
 #include "BorderGenDlg.h"
 
 #ifdef _DEBUG
@@ -71,7 +72,8 @@ BOOL CBorderGenApp::InitInstance()
 
 	AfxInitRichEdit2();
 
-	CBorderGenDlg dlg;
+	//CBorderGenDlg dlg;
+	CMainDlg dlg;
 	m_pMainWnd = &dlg;
 	INT_PTR nResponse = dlg.DoModal();
 	if (nResponse == IDOK)

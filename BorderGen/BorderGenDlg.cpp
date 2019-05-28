@@ -9,7 +9,7 @@
 #include "ImgQuantify.h"
 #include "PaintImgDealer.h"
 #include <io.h>
-#include <opencv2\opencv.hpp>
+
 
 using namespace std;
 using namespace cv;
@@ -86,6 +86,7 @@ UINT ThreadGenBorder(LPVOID pParam) {
 				ip.strColorFile = strColor;
 			ip.nProgress = p;
 			ip.bWhiteBG = pDlg->m_bWhiteBG;
+			ip.bThickBd = pDlg->m_bThickBorder;
 			pid.MainProc(ip);
 		}
 
@@ -148,6 +149,8 @@ BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_RADIO_BLACKBG, &CBorderGenDlg::OnBnClickedRadioBlackbg)
 	ON_BN_CLICKED(IDC_RADIO_WHITEBG, &CBorderGenDlg::OnBnClickedRadioWhitebg)
 	ON_BN_CLICKED(IDC_CHECK_GENCOLORMAP, &CBorderGenDlg::OnBnClickedCheckGencolormap)
+	ON_BN_CLICKED(IDC_RADIO_THICK, &CBorderGenDlg::OnBnClickedRadioThick)
+	ON_BN_CLICKED(IDC_RADIO_SLIM, &CBorderGenDlg::OnBnClickedRadioSlim)
 END_MESSAGE_MAP()
 
 
@@ -187,15 +190,20 @@ BOOL CBorderGenDlg::OnInitDialog()
 	m_pStruProg      = NULL;
 	m_bSimpleVersion = false;
 	m_bWhiteBG       = true;
+	m_bThickBorder   = true;
 
 	CButton * pBtnSVersion = (CButton *)GetDlgItem(IDC_RADIO_SIMPLEIMG);
 	CButton * pBtnCVersion = (CButton *)GetDlgItem(IDC_RADIO_COMPLEXIMG);
 	CButton * pBtnBlackBG = (CButton *)GetDlgItem(IDC_RADIO_BLACKBG);
 	CButton * pBtnWhiteBG = (CButton *)GetDlgItem(IDC_RADIO_WHITEBG);
+	CButton * pBtnThickB  = (CButton *)GetDlgItem(IDC_RADIO_THICK);
+	CButton * pBtnSlimB   = (CButton *)GetDlgItem(IDC_RADIO_SLIM);
 	pBtnCVersion->SetCheck(1);
 	pBtnSVersion->SetCheck(0);
 	pBtnWhiteBG->SetCheck(1);
 	pBtnBlackBG->SetCheck(0);
+	pBtnSlimB->SetCheck(0);
+	pBtnThickB->SetCheck(1);
 
 	m_ProgressBar.SetRange(0, 100);
 
@@ -330,7 +338,27 @@ void CBorderGenDlg::OnBnClickedButtonBrowser()
 		string s(strFileName.GetBuffer(0));
 		m_vecFiles.push_back(s);
 	}
+}
 
+//是不是后缀带_border的文件;
+bool CBorderGenDlg::IsBorderFile(CString strFile)
+{
+	string strFileName;
+	strFileName = strFile.GetBuffer(0);
+	strFile.ReleaseBuffer();
+
+	int nIndex = strFileName.rfind('.');
+	string strBorder = strFileName.substr(0, nIndex);
+
+	string strFormat = "_border";
+	if (strBorder.length() <= strFormat.length())
+		return false;
+
+	string strExtractFormat = strBorder.substr(strBorder.length() - strFormat.length(), strFormat.length());
+	if (strExtractFormat.compare(strFormat.c_str()) == 0)
+		return true;
+	else
+		return false;
 }
 
 void CBorderGenDlg::ListAllFiles(CString strFilePath)
@@ -349,7 +377,9 @@ void CBorderGenDlg::ListAllFiles(CString strFilePath)
 		bWorking = findFile.FindNextFile();
 		CString strFileName = findFile.GetFileName();
 
-		m_lbFiles.AddString(strFileName);
+		//不添加border文件;
+		if (!IsBorderFile(strFileName))
+			m_lbFiles.AddString(strFileName);
 	}
 	findFile.Close();
 
@@ -360,7 +390,8 @@ void CBorderGenDlg::ListAllFiles(CString strFilePath)
 		bWorking = findFile.FindNextFile();
 		CString strFileName = findFile.GetFileName();
 
-		m_lbFiles.AddString(strFileName);
+		if (!IsBorderFile(strFileName))
+			m_lbFiles.AddString(strFileName);
 	}
 	findFile.Close();
 
@@ -371,11 +402,34 @@ void CBorderGenDlg::ListAllFiles(CString strFilePath)
 		bWorking = findFile.FindNextFile();
 		CString strFileName = findFile.GetFileName();
 
-		m_lbFiles.AddString(strFileName);
+		if (!IsBorderFile(strFileName))
+			m_lbFiles.AddString(strFileName);
 	}
 	findFile.Close();
 }
 
+bool CBorderGenDlg::GenImgWithBorder(Mat img,Mat border,Mat & res) {
+
+	res = img.clone();
+	int w = img.cols;
+	int h = img.rows;
+
+	int bw = border.cols;
+	int bh = border.rows;
+	if ((bw != w) || (bh != h))
+		return false;
+	for (int r = 0; r < h; r++)
+	{
+		for (int c = 0; c < w; c++)
+		{
+			Vec3b v = border.at<Vec3b>(r, c);
+			//描红边;
+			if (v[0]<125 && v[1]<125 && v[2]<125)
+				res.at<Vec3b>(r, c) = Vec3b(0, 0, 255);
+		}
+	}
+	
+}
 
 void CBorderGenDlg::OnLbnSelchangeList1()
 {
@@ -392,12 +446,33 @@ void CBorderGenDlg::OnLbnSelchangeList1()
 
 	Mat img = imread(strFileName.GetBuffer(0));
 
-	//缩放到宽度只有800;
-	int nW = 480;
-	int nH = img.cols*1.0 / nW / img.rows;
+	//缩放到宽度只有原来的一半大小;
+	Mat resizedImg;
+	resize(img, resizedImg, Size(img.cols/2, img.rows/2));
 	namedWindow("原图");
-	resizeWindow("原图", nW, nH);
-	imshow("原图", img);
+	imshow("原图", resizedImg);
+
+	//border图;
+	string strTemp;
+	strTemp = strFileName.GetBuffer(0);
+	int nIndex = strTemp.rfind('.');
+	string strExt = strTemp.substr(nIndex, strTemp.length() - nIndex);
+	string strBorderFile = strTemp.substr(0, nIndex);
+	strBorderFile = strBorderFile.append("_border");
+	strBorderFile = strBorderFile.append(strExt);
+
+	//如果有border图，显示叠加图;
+	Mat borderImg = imread(strBorderFile);
+	if (borderImg.empty()) {
+		AfxMessageBox("未找到对应的_border文件");
+		return;
+	}
+
+	Mat resImg,resizeRes;
+	GenImgWithBorder(img, borderImg, resImg);
+	resize(resImg, resizeRes, Size(img.cols/2, img.rows/2));
+	namedWindow("叠加图");
+	imshow("叠加图", resizeRes);
 }
 
 
@@ -519,4 +594,18 @@ void CBorderGenDlg::OnBnClickedCheckGencolormap()
 		m_bGenColorMap = true;
 	else
 		m_bGenColorMap = false;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioThick()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_bThickBorder = true;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioSlim()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_bThickBorder = false;
 }

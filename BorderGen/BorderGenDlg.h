@@ -7,8 +7,10 @@
 #include <vector>
 #include <string>
 #include "afxcmn.h"
+#include <opencv2\opencv.hpp>
 
 using namespace std;
+using namespace cv;
 
 #define THREAD_NUM    4
 #define BORDER_FOLDER "border_result"
@@ -35,6 +37,7 @@ public:
 	struProgress       * m_pStruProg; //存储每个线程处理的文件及进度信息;从1开始，不是0
 	bool                 m_bSimpleVersion;   //哪种方法
 	bool                 m_bWhiteBG;         //生成图的背景颜色;
+	bool                 m_bThickBorder;     //粗边界;
 	string  GetSaveFile(string strExt, string &strFile);
 
 // 对话框数据
@@ -45,9 +48,11 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 private:
-	
+
 	CWinThread   * m_pDealThread;
 	void ListAllFiles(CString strFilePath);
+	bool IsBorderFile(CString strFileName);
+	bool GenImgWithBorder(Mat img, Mat border, Mat & res);
 
 // 实现
 protected:
@@ -81,4 +86,6 @@ public:
 	afx_msg void OnBnClickedRadioBlackbg();
 	afx_msg void OnBnClickedRadioWhitebg();
 	afx_msg void OnBnClickedCheckGencolormap();
+	afx_msg void OnBnClickedRadioThick();
+	afx_msg void OnBnClickedRadioSlim();
 };
