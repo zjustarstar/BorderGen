@@ -2,7 +2,7 @@
 #include "ImgQuantify.h"
 
 
-#define ENABLE_GENERATE_INDEXMAP    1   //是否生成indexmap
+#define ENABLE_GENERATE_INDEXMAP    0   //是否生成indexmap
 
 bool IsEqual(Vec3b v, Vec3b dst){
 	bool n1 = abs(v[0] - dst[0]) < COLOR_SIMILAR_THRE;
@@ -20,6 +20,8 @@ CImgQuantify::CImgQuantify()
 	m_pData = NULL;
 	m_pIndexMap = NULL;
 	m_bVisit = NULL;
+
+	m_nMinRegNum = 100;
 }
 
 
@@ -31,6 +33,11 @@ CImgQuantify::~CImgQuantify()
 		delete[] m_pIndexMap;
 	if (m_bVisit)
 		delete[] m_bVisit;
+}
+
+void CImgQuantify::setMinRegNum(int nNum)
+{
+	m_nMinRegNum = nNum;
 }
 
 void CImgQuantify::GetImgData(Mat img){
@@ -309,7 +316,7 @@ bool CImgQuantify::FindSeed_ByCenter(int nIndex, vector<int> &vecLoc, bool b8)
 	vecLoc.push_back(nIndex);
 
 	//如果相同像素的点不够多,也不算找到;
-	if (nTotalNum < REG_AREA_THRE)
+	if (nTotalNum < m_nMinRegNum)
 		return false;
 
 	return true;
@@ -385,7 +392,7 @@ bool CImgQuantify::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc){
 	vecLoc.push_back(nIndex);
 
 	//如果相同像素的点不够多,也不算找到;
-	if (nTotalNum < REG_AREA_THRE)
+	if (nTotalNum < m_nMinRegNum)
 		return false;
 
 	return true;

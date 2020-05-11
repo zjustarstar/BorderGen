@@ -47,6 +47,7 @@ protected:
 static int nFileId = 0;
 UINT ThreadGenBorder(LPVOID pParam) {
 	CBorderGenDlg * pDlg = (CBorderGenDlg *)pParam;
+	int nMinRegNum = pDlg->m_nMinArea;
 
 	//处理一个图像文件;
 	while (pDlg->m_vecFiles.size())
@@ -73,6 +74,7 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		//简单图的处理;
 		if (pDlg->m_bSimpleVersion) {
 			CImgQuantify iq(img);
+			iq.setMinRegNum(nMinRegNum);
 			iq.MainProc(strBorder, p);
 		}
 		//复杂图的处理;
@@ -87,6 +89,7 @@ UINT ThreadGenBorder(LPVOID pParam) {
 			ip.nProgress = p;
 			ip.bWhiteBG = pDlg->m_bWhiteBG;
 			ip.bThickBd = pDlg->m_bThickBorder;
+			pid.setMinRegNum(nMinRegNum);
 			pid.MainProc(ip);
 		}
 
@@ -478,6 +481,9 @@ void CBorderGenDlg::OnLbnSelchangeList1()
 
 void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 {
+	UpdateData();
+
+	int aa = m_nMinArea;
 	nFileId = 0;  
 
 	CString strBorderFolder = m_strFilePath;

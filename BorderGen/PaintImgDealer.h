@@ -7,7 +7,6 @@ using namespace std;
 using namespace cv;
 
 #define COLOR_DIST_THRE  20
-#define OMIT_REGION_THRE 100
 
 typedef struct struBin{
 	int    nCount;  //bin中元素个数;
@@ -43,6 +42,7 @@ public:
 	virtual ~CPaintImgDealer();
 	void GetImgData(const Mat img);
 
+	void setMinRegNum(int nNum);
 	void PreProcess(Mat img);
 	void QuantifySat_Val(struBin * pBin, vector<int> *pVecIndex, bool bSat);
 	void QuantifyHue(struBin * pBin, vector<int> *pVecIndex);
@@ -79,6 +79,7 @@ private:
 	Vec3b   * m_pHsvData;    //hsv图像数据;
 	Vec3b   * m_pData;       //当前使用的数据;
 
+	int   m_nMinRegNum;      //最小区域像素数;
 	unsigned int   * m_pIndexMap;     //每个像素所属的区域index;    
 	bool           * m_bVisit;        //是否被访问过的标记;
 	vector<struRegionInfo> m_vecReg;  //所有量化颜色区域的信息;

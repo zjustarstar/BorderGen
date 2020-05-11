@@ -3,7 +3,7 @@
 #include <opencv2\opencv.hpp>
 
 #define COLOR_SIMILAR_THRE   5     //颜色相似度阈值;
-#define REG_AREA_THRE        100    //最小种子区域的阈值;
+//#define REG_AREA_THRE        100    //最小种子区域的阈值;
 
 using namespace std;
 using namespace cv;
@@ -21,6 +21,8 @@ public:
 	CImgQuantify(Mat img);
 	virtual ~CImgQuantify();
 
+	//参数设置;
+	void setMinRegNum(int nNum);
 	bool MainProc(string strBorderFile, int * nProgress, bool bWithBg=false);
 
 private:
@@ -55,6 +57,7 @@ private:
 	Mat              m_OriImg;
 	Vec3b          * m_pData;        //图像数据;
 	int              m_nW,m_nH;      //图像宽高;
+	int              m_nMinRegNum;   //每个区域最少像素数：
 	unsigned int   * m_pIndexMap;     //每个像素所属的区域index;    
 	bool           * m_bVisit;        //是否被访问过的标记;
 	vector<struRegionInfo> m_vecReg;  //所有量化颜色区域的信息;

@@ -10,6 +10,8 @@ CPaintImgDealer::CPaintImgDealer()
 {
 	m_pBgrData = NULL;
 	m_pHsvData = NULL;
+
+	m_nMinRegNum = 100;
 }
 
 
@@ -24,6 +26,7 @@ CPaintImgDealer::~CPaintImgDealer()
 	if (m_bVisit)
 		delete[] m_bVisit;
 }
+
 
 CPaintImgDealer::CPaintImgDealer(Mat img)
 {
@@ -51,6 +54,10 @@ CPaintImgDealer::CPaintImgDealer(Mat img)
 
 	PreProcess(img);
 	GetImgData(img);
+}
+
+void CPaintImgDealer::setMinRegNum(int nNum) {
+	m_nMinRegNum = nNum;
 }
 
 /*
@@ -437,7 +444,7 @@ bool CPaintImgDealer::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc) {
 	vecLoc.push_back(nIndex);
 
 	//如果相同像素的点不够多,也不算找到;
-	if (nTotalNum < OMIT_REGION_THRE)
+	if (nTotalNum < m_nMinRegNum)
 		return false;
 
 	return true;
