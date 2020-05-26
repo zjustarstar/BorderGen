@@ -61,7 +61,7 @@ void CMainDlg::InitTabCtrl()
 	CRect rc;
 	m_tabSet.GetClientRect(rc);
 	rc.top += 30;
-	rc.bottom -= 8;
+	rc.bottom -= 4;
 	rc.left += 8;
 	rc.right -= 8;
 

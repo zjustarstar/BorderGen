@@ -52,13 +52,14 @@ CPaintImgDealer::CPaintImgDealer(Mat img)
 	memset(m_bVisit, 0, sizeof(bool)*nSize);
 	memset(m_pIndexMap, 0, sizeof(unsigned int)*nSize);
 
-	PreProcess(img);
+	static int i = 0;
+	char strName[256];
+	sprintf_s(strName, "d:\\%d.jpg", i++);
+	//GaussianBlur(img, img, cvSize(3, 3), 0);
+	//imwrite(string(strName), img);
 	GetImgData(img);
 }
 
-void CPaintImgDealer::setMinRegNum(int nNum) {
-	m_nMinRegNum = nNum;
-}
 
 /*
  红 bin[0]: 0-10; 
@@ -373,6 +374,24 @@ bool CPaintImgDealer::DealConnection(int nIndex, Vec3b v, bool * pVisitMap, vect
 	return vecConn.size();
 }
 
+Vec3b  CPaintImgDealer::CalcAvgValue(int nIndex) {
+	vector<int> vecLoc;
+
+	for (int r = -1; r <= 1; r++)
+		for (int c = -1; c <= 1; c++)
+		{
+			if (r == 0 && c == 0) continue; //自己不加入;
+
+			int nNewInd = c + r*m_nW + nIndex;
+
+			if (nNewInd>0 && nNewInd < m_nW*m_nH) {
+				vecLoc.push_back(nNewInd);
+			}
+		}
+
+	return GetMeanV(vecLoc);
+}
+
 
 //从nIndex开始，查找图像八连通区域中的种子;找到后压栈，并不停弹出再循环查找。
 //基于已找到种子的均值，查找剩余的种子;
@@ -391,6 +410,8 @@ bool CPaintImgDealer::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc) {
 
 	vector<int> vecSeedLoc;      //保存相同值的坐标，该栈不停的压入弹出，用于找到所有相近值的种子像素;
 	Vec3b v = m_pData[nIndex];
+
+	//v = CalcAvgValue(nIndex);
 
 	vector<int> vecConn;  //联通区域的处理;
 	Vec3i       vSum;     //返回当前某个像素八连通区域RGB值的总和,方便计算vecSeedLoc中所有像素的平均值;
@@ -433,11 +454,11 @@ bool CPaintImgDealer::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc) {
 			vecSeedLoc.push_back(vecConn[i]);
 
 		//更新种子平均值;
-		for (int i = 0; i < 3; i++)
+		/*for (int i = 0; i < 3; i++)
 		{
 			vdSum[i] += vSum[i];
 			vAvg[i] = vdSum[i] / (vecSeedLoc.size() + nTotalNum) + 0.5;  //nTotalNum是被弹出的那些元素;
-		}
+		}*/
 	}
 
 	//将当前的nIndex像素压入最终的栈;
@@ -500,7 +521,12 @@ void CPaintImgDealer::GenMapImageByRegColor(string strFile) {
 
 	if (!m_bUseRGB)
 		cvtColor(m, m, CV_HSV2BGR);
-	imwrite(strFile, m);
+
+	char strNewFile_png[256];
+	int nColorSize = m_vecReg.size();
+	string file = strFile.substr(0, strFile.length() - 4);
+	sprintf_s(strNewFile_png, "%s_%d.png", file.c_str(), nColorSize);
+	imwrite(strNewFile_png, m);
 }
 
 
@@ -525,7 +551,8 @@ int CPaintImgDealer::FindSimilarSeedIndex(int n, int nRadius) {
 			}
 		}
 
-	if (vecIndex.size() == 0)
+	//至少周边有1个像素时，才开始计算;
+	if (vecIndex.size() <= 2 )
 		return 0;
 
 	//去除集合中的相同index
@@ -562,40 +589,91 @@ void CPaintImgDealer::DealResidual() {
 	int * pTemp = new int[m_nH*m_nW];
 	memcpy(pTemp, m_pIndexMap, sizeof(int)*m_nH*m_nW);
 
-	bool bStillNoMatch = false;
+	vector<int> vecResidualPixel;
 	for (int i = 0; i < m_nW * m_nH; i++)
 	{
-		int index = m_pIndexMap[i];
-
-		if (index != 0)
-			continue;
-
-		//表示孤立的点，找最相近的种子;但是本次处理结果由于使用了pTemp，不影响后续元素的处理
-		index = FindSimilarSeedIndex(i, 2);
-		if (index == 0)
-			bStillNoMatch = true;
-		pTemp[i] = index;
+		if (m_pIndexMap[i] == 0)
+			vecResidualPixel.push_back(i);
 	}
 
-	memcpy(m_pIndexMap, pTemp, sizeof(int)*m_nH*m_nW);
-
-	//还有孤立的点，再次处理.这次处理，受前次处理结果的影响，但是能保证所有点都被处理完;
-	if (bStillNoMatch)
+	//所有未处理过的residualpixel集合;
+	int nSize = vecResidualPixel.size();
+	do 
 	{
-		for (int i = 0; i < m_nW * m_nH; i++)
-		{
-			int index = m_pIndexMap[i];
-
-			if (index != 0)
-				continue;
-
-			//表示孤立的点，找最相近的种子,此次窗口为1;
-			index = FindSimilarSeedIndex(i, 1);
-			m_pIndexMap[i] = index;
+		for (vector<int>::iterator iter = vecResidualPixel.begin(); iter != vecResidualPixel.end();) {
+			int i = *iter;
+			//先完成外围的，再完成内部的相似点检测;
+			int index = FindSimilarSeedIndex(i, 1);
+			if (index) {
+				pTemp[i] = index;
+				//找到匹配的以后就删除;
+				iter = vecResidualPixel.erase(iter);
+			}
+			else
+				iter++;
 		}
-	}
+
+		memcpy(m_pIndexMap, pTemp, sizeof(int)*m_nH*m_nW);
+		nSize = vecResidualPixel.size();
+
+	} while (nSize != 0);
 
 	delete[] pTemp;
+}
+
+//删除孤立点：四联通区域内，有三个颜色和自己不同;
+//将孤立点的像素设为与其它三个相同;
+void CPaintImgDealer::RemoveIsolatedPixel() {
+
+	for (int i = 0; i < m_nW * m_nH; i++)
+	{
+		int ind = m_pIndexMap[i];
+
+		int iLeftInd = -1;
+		int iRightInd = -1;
+		int iUpInd = -1;
+		int iDwInd = -1;
+
+		//和当前像素不同颜色的，则放入vecNeib中;
+		vector<int> vecNeib;
+		if (i - 1 >= 0){
+			iLeftInd = m_pIndexMap[i - 1];
+			if (iLeftInd != ind)
+				vecNeib.push_back(iLeftInd);
+		}
+		if (i + 1 < m_nW*m_nH){
+			iRightInd = m_pIndexMap[i + 1];
+			if (iRightInd != ind)
+				vecNeib.push_back(iRightInd);
+		}
+		if (i - m_nW >= 0){
+			iUpInd = m_pIndexMap[i - m_nW];
+			if (iUpInd != ind)
+				vecNeib.push_back(iUpInd);
+		}
+		if (i + m_nW < m_nW*m_nH){
+			iDwInd = m_pIndexMap[i + m_nW];
+			if (iDwInd != ind)
+				vecNeib.push_back(iDwInd);
+		}
+
+		//如果剩下的颜色都相等,则认为当前像素为孤立点,直接设为与剩下颜色一样的值;
+		if (vecNeib.size() >= 3) {
+			bool bFlag = true;
+			int v = vecNeib[0];
+			for (int i = 0; i < vecNeib.size(); i++)
+			{
+				if (vecNeib[i] != v){
+					bFlag = false;
+					break;
+				}
+					
+			}
+			if (bFlag)
+				m_pIndexMap[i] = v;
+		}
+			
+	}
 }
 
 
@@ -652,14 +730,16 @@ bool CPaintImgDealer::UpdateRegionInfo(Vec3b v, vector<int> vecLoc, int &nNewInd
 }
 
 bool CPaintImgDealer::IsEqual(Vec3b v, Vec3b dst) {
-	bool n1 = abs(v[0] - dst[0]) < COLOR_DIST_THRE;
-	bool n2 = abs(v[1] - dst[1]) < COLOR_DIST_THRE;
-	bool n3 = abs(v[2] - dst[2]) < COLOR_DIST_THRE;
+
+	bool n1 = abs(v[0] - dst[0]) < m_nColorDistThre;
+	bool n2 = abs(v[1] - dst[1]) < m_nColorDistThre;
+	bool n3 = abs(v[2] - dst[2]) < m_nColorDistThre;
 
 	if (n1 && n2 && n3)
 		return true;
 	else
 		return false;
+	
 }
 
 
@@ -843,10 +923,13 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 		m_pData = m_pHsvData;
 
 	m_bUseRGB = param.bRGBData;
+	m_nColorDistThre = param.nColorThre;
+	m_nMinRegNum = param.nMinAreaThre;
 
 	vector<int> vecLoc;
 	int nCurIndex = 1;
 	int nSize = m_nW * m_nH;
+
 	for (int i = 0; i < nSize; i++)
 	{
 		//进度...
@@ -893,9 +976,15 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 	//GenMapImageByRegColor("regions.jpg");
 
 	//保存未处理residual区域的图;
-	//GenMapImageByIndex("residual.jpg", 0, Vec3b(255, 255, 255));
+	string residualFile;
+	int len = param.strBorderFile.length();
+	residualFile = param.strBorderFile.substr(0, len - 4);
+	residualFile = residualFile + "_residual.jpg";
+	//GenMapImageByIndex(residualFile, 0, Vec3b(255, 255, 255));
 	//处理未有归属区域的;
 	DealResidual();
+	//删除孤立像素点;
+	RemoveIsolatedPixel();
 
 	GenMapImageByRegColor(param.strColorFile);
 	GenBorderImg(param.strBorderFile,param.bWhiteBG,param.bThickBd);

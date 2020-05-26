@@ -64,8 +64,8 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		string strColor  = pDlg->GetSaveFile("color", strFile);
 		//写日志;
 		string s(pDlg->m_strFilePath.GetBuffer(0));
-		strFile = s + "\\" + strFile;
 		pDlg->m_pStruProg[nFileId].strFile = strFile;
+		strFile = s + "\\" + strFile;
 		
 		//生成边界文件;
 		int * p = &(pDlg->m_pStruProg[nFileId].nProgess);
@@ -86,10 +86,14 @@ UINT ThreadGenBorder(LPVOID pParam) {
 			//如果要生成填色图;
 			if (pDlg->m_bGenColorMap)
 				ip.strColorFile = strColor;
+
+			//设置参数;
 			ip.nProgress = p;
+			ip.nColorThre = pDlg->m_nColorDistThre;
 			ip.bWhiteBG = pDlg->m_bWhiteBG;
 			ip.bThickBd = pDlg->m_bThickBorder;
-			pid.setMinRegNum(nMinRegNum);
+			ip.nMinAreaThre = pDlg->m_nMinArea;
+
 			pid.MainProc(ip);
 		}
 
@@ -119,6 +123,8 @@ CBorderGenDlg::CBorderGenDlg(CWnd* pParent /*=NULL*/)
 	, m_nMinArea(100)
 	, m_nThreadNum(4)
 	, m_bGenColorMap(0)
+	, m_nColorDistThre(20)
+	, m_nFinalColorNum(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -135,6 +141,7 @@ void CBorderGenDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON_BATCHPROCESS, m_btnStart);
 	DDX_Text(pDX, IDC_EDIT_PARAM_THREADNUM, m_nThreadNum);
 	DDX_Text(pDX, IDC_EDIT_PARAM_REGIONMINSIZE, m_nMinArea);
+	DDX_Text(pDX, IDC_EDIT_PARAM_COLORDIST, m_nColorDistThre);
 	//DDX_Text(pDX, IDC_CHECK_GENCOLORMAP, m_bGenColorMap);
 }
 
@@ -193,7 +200,8 @@ BOOL CBorderGenDlg::OnInitDialog()
 	m_pStruProg      = NULL;
 	m_bSimpleVersion = false;
 	m_bWhiteBG       = true;
-	m_bThickBorder   = true;
+	m_bThickBorder   = false;
+	m_bGenColorMap	 = true;
 
 	CButton * pBtnSVersion = (CButton *)GetDlgItem(IDC_RADIO_SIMPLEIMG);
 	CButton * pBtnCVersion = (CButton *)GetDlgItem(IDC_RADIO_COMPLEXIMG);
@@ -201,12 +209,14 @@ BOOL CBorderGenDlg::OnInitDialog()
 	CButton * pBtnWhiteBG = (CButton *)GetDlgItem(IDC_RADIO_WHITEBG);
 	CButton * pBtnThickB  = (CButton *)GetDlgItem(IDC_RADIO_THICK);
 	CButton * pBtnSlimB   = (CButton *)GetDlgItem(IDC_RADIO_SLIM);
+	CButton * pGenColorButton = (CButton *)GetDlgItem(IDC_CHECK_GENCOLORMAP);
+	pGenColorButton->SetCheck(1);
 	pBtnCVersion->SetCheck(1);
 	pBtnSVersion->SetCheck(0);
 	pBtnWhiteBG->SetCheck(1);
 	pBtnBlackBG->SetCheck(0);
-	pBtnSlimB->SetCheck(0);
-	pBtnThickB->SetCheck(1);
+	pBtnSlimB->SetCheck(1);
+	pBtnThickB->SetCheck(0);
 
 	m_ProgressBar.SetRange(0, 100);
 
@@ -484,6 +494,7 @@ void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 	UpdateData();
 
 	int aa = m_nMinArea;
+	int bb = m_nColorDistThre;
 	nFileId = 0;  
 
 	CString strBorderFolder = m_strFilePath;
@@ -520,7 +531,7 @@ void CBorderGenDlg::OnTimer(UINT_PTR nIDEvent)
 		CString strText;
 		if (nProgress == 0)
 			strText.Format("开始预处理文件:%s.....\n", strFile.c_str());
-		else if ((nProgress > 0) && (nProgress < 99))
+		else if ((nProgress > 0) && (nProgress < 98))
 			strText.Format("开始处理文件:%s，进度为:%d%%\n", strFile.c_str(), m_pStruProg[i].nProgess);
 		else
 		{

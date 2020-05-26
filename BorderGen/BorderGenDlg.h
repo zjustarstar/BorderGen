@@ -38,6 +38,8 @@ public:
 	bool                 m_bSimpleVersion;   //哪种方法
 	bool                 m_bWhiteBG;         //生成图的背景颜色;
 	bool                 m_bThickBorder;     //粗边界;
+	int					 m_nMinArea;
+	bool                 m_bGenColorMap;
 	string  GetSaveFile(string strExt, string &strFile);
 
 // 对话框数据
@@ -77,8 +79,7 @@ public:
 	CProgressCtrl m_ProgressBar;
 	CStatic m_sttProgress;
 	CButton m_btnStart;
-	int   m_nMinArea;
-	bool  m_bGenColorMap;
+
 	// 启动的线程数
 	short m_nThreadNum;
 	afx_msg void OnBnClickedRadioCompleximg();
@@ -88,4 +89,8 @@ public:
 	afx_msg void OnBnClickedCheckGencolormap();
 	afx_msg void OnBnClickedRadioThick();
 	afx_msg void OnBnClickedRadioSlim();
+	// 颜色之间的距离
+	int m_nColorDistThre;
+	// 最终生成的颜色数量
+	short m_nFinalColorNum;
 };
