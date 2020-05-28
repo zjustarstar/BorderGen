@@ -26,6 +26,7 @@ typedef struct struInParam {
 	bool   bThickBd;        //是否生成粗边界;
 	int    nColorThre;      //颜色阈值;
 	int    nMinAreaThre;    //最小区域阈值;
+	int    nFinalClrNum;    //最终颜色数量;
 	struInParam() {
 		strBorderFile = "";
 		strColorFile = "";
@@ -35,6 +36,7 @@ typedef struct struInParam {
 		bThickBd  = true;
 		nColorThre = 20;
 		nMinAreaThre = 100;
+		nFinalClrNum = 0;  // 0表示不指定最终颜色数量;
 	}
 };
 
@@ -62,7 +64,7 @@ public:
 
 	//生成同值index区域的图;
 	void GenMapImageByIndex(string strFile, int nIndex, Vec3b v);
-	void GenMapImageByRegColor(string strFile);
+	void GenMapImageByRegColor(string strFile, bool bColorReassign=false);
 	void GenBorderImg(string strFile, bool bWhiteBG=true, bool bThickBd=true);
 
 	//regions;
@@ -70,6 +72,7 @@ public:
 	bool UpdateRegionInfo(Vec3b v, vector<int> vecLoc, int &nNewIndex);
 	void DealResidual();
 	void RemoveIsolatedPixel();
+	bool  ColorReassign(int nNewColorNum);
 
 	//index map;
 	void IndexMapErosion(vector<int> &vecConn);
@@ -80,6 +83,7 @@ public:
 private:
 	int   m_nColorDistThre;  //颜色距离阈值;
 	int   m_nMinRegNum;      //最小区域像素数;
+	int   m_nFinalColorNum;  //最终颜色数量;
 	Mat     m_OriImg;
 	int     m_nW, m_nH;      //图像宽高;
 	bool    m_bUseRGB;       //是否使用RGB数据;

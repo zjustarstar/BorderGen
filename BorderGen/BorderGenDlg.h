@@ -93,4 +93,5 @@ public:
 	int m_nColorDistThre;
 	// 最终生成的颜色数量
 	short m_nFinalColorNum;
+	afx_msg void OnBnClickedCheckSpecColornum();
 };

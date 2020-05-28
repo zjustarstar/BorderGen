@@ -492,7 +492,8 @@ Vec3b CPaintImgDealer::GetMeanV(vector<int> vecLoc) {
 	return vv;
 }
 
-void CPaintImgDealer::GenMapImageByRegColor(string strFile) {
+//bColorReassign表示是否要对颜色种类进行重新量化;
+void CPaintImgDealer::GenMapImageByRegColor(string strFile, bool bColorReassign) {
 	if (strFile.empty())
 		return;
 
@@ -524,6 +525,8 @@ void CPaintImgDealer::GenMapImageByRegColor(string strFile) {
 
 	char strNewFile_png[256];
 	int nColorSize = m_vecReg.size();
+	if (bColorReassign)
+		nColorSize = m_nFinalColorNum;
 	string file = strFile.substr(0, strFile.length() - 4);
 	sprintf_s(strNewFile_png, "%s_%d.png", file.c_str(), nColorSize);
 	imwrite(strNewFile_png, m);
@@ -914,6 +917,51 @@ void CPaintImgDealer::GenBorderImg(string strFile,bool bWhiteBG,bool bThickBd) {
 	imwrite(strFile, m);
 }
 
+//输入为需要最终将颜色采样到指定的数量;
+bool  CPaintImgDealer::ColorReassign(int nNewColorNum) {
+	int nColorSize = m_vecReg.size();
+	if (nColorSize <= nNewColorNum)
+		return false;
+
+	Mat data(nColorSize,3,CV_8UC1);
+	Mat hsvdata;
+	for (int i = 0; i < nColorSize; i++) {
+		Vec3b point = m_vecReg[i].v;
+		for (int j = 0; j < 3; j++)
+			data.at<uchar>(i, j) = point[j];
+	}
+	
+	data.convertTo(data, CV_32FC1);
+	
+	const cv::TermCriteria term_criteria = cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 0.01);
+	cv::Mat labels, centers;
+
+	kmeans(data, nNewColorNum, labels, term_criteria, 100, cv::KMEANS_RANDOM_CENTERS, centers);
+
+	map<int, int> indexMap;   //聚类前后index对应关系;
+	centers.convertTo(centers, CV_8UC1);
+	for (int i = 0; i < nColorSize; i++)
+	{
+		int clusterIdx = labels.at<int>(i);
+
+		m_vecReg[i].v = centers.at<Vec3b>(clusterIdx);
+		//m_vecReg中的index是从1开始的;0表示背景色;
+		m_vecReg[i].nIndex = clusterIdx + 1;
+
+		//原来的index i对应新的clusterIdx;
+		indexMap.insert(make_pair(i, clusterIdx + 1));
+	}
+
+	//将每个像素的index 更新下;
+	for (int i = 0; i < m_nW * m_nH; i++)
+	{
+		int ind = m_pIndexMap[i];
+		m_pIndexMap[i] = indexMap[ind - 1];
+	}
+
+	return true;
+}
+
 //param是所有输入参数的结构体;
 void  CPaintImgDealer::MainProc(struInParam param) {
 	//使用的颜色空间;
@@ -925,6 +973,7 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 	m_bUseRGB = param.bRGBData;
 	m_nColorDistThre = param.nColorThre;
 	m_nMinRegNum = param.nMinAreaThre;
+	m_nFinalColorNum = param.nFinalClrNum;
 
 	vector<int> vecLoc;
 	int nCurIndex = 1;
@@ -987,5 +1036,12 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 	RemoveIsolatedPixel();
 
 	GenMapImageByRegColor(param.strColorFile);
+
+	//颜色数量的压缩;压缩后重新生成;
+	if (param.nFinalClrNum > 0){
+		bool bRet = ColorReassign(param.nFinalClrNum);
+		GenMapImageByRegColor(param.strColorFile,bRet);
+	}
+
 	GenBorderImg(param.strBorderFile,param.bWhiteBG,param.bThickBd);
 }

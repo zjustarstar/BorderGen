@@ -93,6 +93,7 @@ UINT ThreadGenBorder(LPVOID pParam) {
 			ip.bWhiteBG = pDlg->m_bWhiteBG;
 			ip.bThickBd = pDlg->m_bThickBorder;
 			ip.nMinAreaThre = pDlg->m_nMinArea;
+			ip.nFinalClrNum = pDlg->m_nFinalColorNum;
 
 			pid.MainProc(ip);
 		}
@@ -124,7 +125,7 @@ CBorderGenDlg::CBorderGenDlg(CWnd* pParent /*=NULL*/)
 	, m_nThreadNum(4)
 	, m_bGenColorMap(0)
 	, m_nColorDistThre(20)
-	, m_nFinalColorNum(0)
+	, m_nFinalColorNum(24)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -142,6 +143,7 @@ void CBorderGenDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_PARAM_THREADNUM, m_nThreadNum);
 	DDX_Text(pDX, IDC_EDIT_PARAM_REGIONMINSIZE, m_nMinArea);
 	DDX_Text(pDX, IDC_EDIT_PARAM_COLORDIST, m_nColorDistThre);
+	DDX_Text(pDX, IDC_EDIT_PARAM_COLORNUM, m_nFinalColorNum);
 	//DDX_Text(pDX, IDC_CHECK_GENCOLORMAP, m_bGenColorMap);
 }
 
@@ -161,6 +163,7 @@ BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CHECK_GENCOLORMAP, &CBorderGenDlg::OnBnClickedCheckGencolormap)
 	ON_BN_CLICKED(IDC_RADIO_THICK, &CBorderGenDlg::OnBnClickedRadioThick)
 	ON_BN_CLICKED(IDC_RADIO_SLIM, &CBorderGenDlg::OnBnClickedRadioSlim)
+	ON_BN_CLICKED(IDC_CHECK_SPEC_COLORNUM, &CBorderGenDlg::OnBnClickedCheckSpecColornum)
 END_MESSAGE_MAP()
 
 
@@ -210,6 +213,9 @@ BOOL CBorderGenDlg::OnInitDialog()
 	CButton * pBtnThickB  = (CButton *)GetDlgItem(IDC_RADIO_THICK);
 	CButton * pBtnSlimB   = (CButton *)GetDlgItem(IDC_RADIO_SLIM);
 	CButton * pGenColorButton = (CButton *)GetDlgItem(IDC_CHECK_GENCOLORMAP);
+	CButton * pBtnSetClorNum  = (CButton *)GetDlgItem(IDC_CHECK_SPEC_COLORNUM);
+	CEdit   * pEditColorNum = (CEdit *)GetDlgItem(IDC_EDIT_PARAM_COLORNUM);
+
 	pGenColorButton->SetCheck(1);
 	pBtnCVersion->SetCheck(1);
 	pBtnSVersion->SetCheck(0);
@@ -217,6 +223,9 @@ BOOL CBorderGenDlg::OnInitDialog()
 	pBtnBlackBG->SetCheck(0);
 	pBtnSlimB->SetCheck(1);
 	pBtnThickB->SetCheck(0);
+
+	pBtnSetClorNum->SetCheck(0);
+	pEditColorNum->EnableWindow(FALSE);
 
 	m_ProgressBar.SetRange(0, 100);
 
@@ -493,8 +502,11 @@ void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 {
 	UpdateData();
 
-	int aa = m_nMinArea;
-	int bb = m_nColorDistThre;
+	//如果未选择最终颜色数量,则保持为0.
+	CButton * pBtnSetClorNum = (CButton *)GetDlgItem(IDC_CHECK_SPEC_COLORNUM);
+	if (!pBtnSetClorNum->GetCheck())
+		m_nFinalColorNum = 0;
+
 	nFileId = 0;  
 
 	CString strBorderFolder = m_strFilePath;
@@ -625,4 +637,14 @@ void CBorderGenDlg::OnBnClickedRadioSlim()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	m_bThickBorder = false;
+}
+
+
+void CBorderGenDlg::OnBnClickedCheckSpecColornum()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CButton * pBtnSetClorNum = (CButton *)GetDlgItem(IDC_CHECK_SPEC_COLORNUM);
+	CEdit   * pEditColorNum = (CEdit *)GetDlgItem(IDC_EDIT_PARAM_COLORNUM);
+
+	pEditColorNum->EnableWindow(pBtnSetClorNum->GetCheck());
 }
