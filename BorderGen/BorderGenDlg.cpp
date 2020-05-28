@@ -57,7 +57,6 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		strFile = pDlg->m_vecFiles.back();
 		pDlg->m_vecFiles.pop_back();
 		nFileId++;
-		pDlg->m_csFiles.Unlock();
 
 		//要保存的图片的路径;
 		string strBorder = pDlg->GetSaveFile("border",strFile);
@@ -69,8 +68,9 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		
 		//生成边界文件;
 		int * p = &(pDlg->m_pStruProg[nFileId].nProgess);
-		Mat img = imread(strFile);
+		pDlg->m_csFiles.Unlock();
 
+		Mat img = imread(strFile);
 		//简单图的处理;
 		if (pDlg->m_bSimpleVersion) {
 			CImgQuantify iq(img);
@@ -198,7 +198,7 @@ BOOL CBorderGenDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	//
-	SetTimer(1000, 1000, NULL);
+	SetTimer(1000, 500, NULL);
 
 	m_pStruProg      = NULL;
 	m_bSimpleVersion = false;

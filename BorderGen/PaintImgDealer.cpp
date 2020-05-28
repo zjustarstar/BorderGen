@@ -55,8 +55,9 @@ CPaintImgDealer::CPaintImgDealer(Mat img)
 	static int i = 0;
 	char strName[256];
 	sprintf_s(strName, "d:\\%d.jpg", i++);
-	//GaussianBlur(img, img, cvSize(3, 3), 0);
-	//imwrite(string(strName), img);
+	//Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5, -1, 0, -1, 0);
+	//filter2D(img, img, img.depth(), kernel);
+	//imwrite(string(strName), dstImg);
 	GetImgData(img);
 }
 
