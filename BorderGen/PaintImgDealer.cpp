@@ -28,14 +28,18 @@ CPaintImgDealer::~CPaintImgDealer()
 }
 
 
-CPaintImgDealer::CPaintImgDealer(Mat img)
+CPaintImgDealer::CPaintImgDealer(Mat img,bool bFastMode)
 {
 	if (img.empty())
 		return;
 
 	//平滑预处理;
-	CL0Smooth ls;
-	img = ls.L0Smoothing(img);
+	if (!bFastMode) {
+		CL0Smooth ls;
+		img = ls.L0Smoothing(img);
+	}
+	else
+		GaussianBlur(img, img, cvSize(3, 3), 0);
 
 	m_OriImg = img.clone();
 
@@ -55,9 +59,15 @@ CPaintImgDealer::CPaintImgDealer(Mat img)
 	static int i = 0;
 	char strName[256];
 	sprintf_s(strName, "d:\\%d.jpg", i++);
-	//Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5, -1, 0, -1, 0);
-	//filter2D(img, img, img.depth(), kernel);
 	//imwrite(string(strName), dstImg);
+
+	//速度要求比较快时...
+	if (bFastMode)
+	{
+		Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5, -1, 0, -1, 0);
+		filter2D(img, img, img.depth(), kernel);
+	}
+
 	GetImgData(img);
 }
 
@@ -329,6 +339,49 @@ void CPaintImgDealer::MainProc(Mat & resultImg){
 }
 */
 
+//查找属于同一区域的所有点。仅处理nIndex点的八连通区域的数据,基于输入的v值进行查找;
+//nIndex: 要处理的点的坐标;  
+//pVisitMap:本轮查找过程中用到的访问痕迹标记; 
+//vecConn:返回的同区域标记的点的坐标集;
+bool CPaintImgDealer::DealConnection_FindSameReg(int nIndex, bool * pVisitMap, vector<int> &vecConn, vector<int> &vecNeib) {
+
+	int nRow, nCol;
+	nRow = nIndex / m_nW;
+	nCol = nIndex % m_nW;
+
+	int nCurIndex = m_pIndexMap[nIndex];
+
+	for (int r = -1; r <= 1; r++)
+		for (int c = -1; c <= 1; c++)
+		{
+			if (r == 0 && c == 0) continue; //自己不加入;
+
+			int nNewR = nRow + r;
+			int nNewC = nCol + c;
+			int nNewInd = nNewC + nNewR*m_nW;
+
+			if (nNewR >= 0 && nNewR < m_nH && nNewC >= 0 && nNewC < m_nW) {
+
+				//不属于同一个区域的;
+				if (m_pIndexMap[nNewInd] != nCurIndex)
+				{
+					//记录相邻区域的indexmap值;
+					vecNeib.push_back(m_pIndexMap[nNewInd]);
+					continue;  
+				}
+				//已访问过的，不再访问,否则会死循环;
+				if (pVisitMap[nNewInd]) 
+					continue; 
+
+				vecConn.push_back(nNewInd);
+				pVisitMap[nNewInd] = true;
+
+			}
+		}
+
+	return true;
+}
+
 
 //仅处理nIndex点的八连通区域的数据,基于输入的v值进行查找;
 //nIndex: 要处理的点的坐标;  v: 基于v值进行相似像素的查找;
@@ -498,6 +551,9 @@ void CPaintImgDealer::GenMapImageByRegColor(string strFile, bool bColorReassign)
 	if (strFile.empty())
 		return;
 
+	int nRegCnt = 0;
+	nRegCnt = CheckRegionStatus();
+
 	Mat m = m_OriImg.clone();
 	m.setTo(0);
 	for (int i = 0; i < m_nH*m_nW; i++)
@@ -529,7 +585,7 @@ void CPaintImgDealer::GenMapImageByRegColor(string strFile, bool bColorReassign)
 	if (bColorReassign)
 		nColorSize = m_nFinalColorNum;
 	string file = strFile.substr(0, strFile.length() - 4);
-	sprintf_s(strNewFile_png, "%s_%d.png", file.c_str(), nColorSize);
+	sprintf_s(strNewFile_png, "%s_%d_%d.png", file.c_str(), nColorSize, nRegCnt);
 	imwrite(strNewFile_png, m);
 }
 
@@ -961,6 +1017,76 @@ bool  CPaintImgDealer::ColorReassign(int nNewColorNum) {
 	}
 
 	return true;
+}
+
+//查验区块状态，包括每个区块的个数,总的区块数等等;
+//并将小于指定面积的区域，进行合并;
+int CPaintImgDealer::CheckRegionStatus() {
+
+	memset(m_bVisit, 0, sizeof(bool)*m_nH*m_nW);
+
+	int nRegionCount = 0;
+	for (int i = 0; i < m_nW * m_nH; i++)
+	{
+		if(m_bVisit[i])
+			continue;
+
+		int nCurIndex = m_pIndexMap[i];
+		nRegionCount++;
+		
+		//临时队列;
+		vector<int> vecTemp;
+		vector<int> vecRegIndex;   //同一个区域的所有点坐标集合;
+		vector<int> vecNeibIndex;  //该区域周围相邻的mapindex值;
+		vecTemp.push_back(i);      //将自己压入;
+
+		int nTotalNum = 0;
+		while (!vecTemp.empty())
+		{
+			//弹出一个，继续寻找;
+			int j = vecTemp.back();
+			vecTemp.pop_back();
+
+			vecRegIndex.push_back(j);
+
+			DealConnection_FindSameReg(j, m_bVisit, vecTemp,vecNeibIndex);
+		}
+
+		//小于指定的区域数量;
+		if (vecRegIndex.size() < m_nMinRegNum) {
+
+			//去除集合中的相同index
+			sort(vecNeibIndex.begin(), vecNeibIndex.end());
+			vecNeibIndex.erase(unique(vecNeibIndex.begin(), vecNeibIndex.end()), vecNeibIndex.end());
+
+			//查找颜色最相近的;
+			Vec3b curV = m_vecReg[nCurIndex].v;
+			double dMinDist = 1e+6;
+			int   nNewIndex = nCurIndex;  //默认是最初的;
+			for (int m = 0; m < vecNeibIndex.size(); m++)
+			{
+				Vec3b t = m_vecReg[vecNeibIndex[m]].v;
+				double dTemp = (curV[0] - t[0]) * (curV[0] - t[0]);
+				dTemp += (curV[1] - t[1]) * (curV[1] - t[1]);
+				dTemp += (curV[2] - t[2]) * (curV[2] - t[2]);
+
+				if (dTemp < dMinDist) {
+					dMinDist = dTemp;
+					nNewIndex = vecNeibIndex[m];
+				}
+			}
+
+			for (int ii = 0; ii < vecRegIndex.size(); ii++)
+			{
+				//变黑;
+				m_pIndexMap[vecRegIndex[ii]] = nNewIndex;
+			}
+		}
+
+		vecNeibIndex.clear();
+	}
+
+	return nRegionCount;
 }
 
 //param是所有输入参数的结构体;

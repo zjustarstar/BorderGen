@@ -94,4 +94,7 @@ public:
 	// 最终生成的颜色数量
 	short m_nFinalColorNum;
 	afx_msg void OnBnClickedCheckSpecColornum();
+	// 快速模式下的算法实现
+	bool m_bFastMode;
+	afx_msg void OnBnClickedCheckFastmode();
 };

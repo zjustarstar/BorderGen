@@ -44,7 +44,7 @@ class CPaintImgDealer
 {
 public:
 	CPaintImgDealer();
-	CPaintImgDealer(Mat img);
+	CPaintImgDealer(Mat img, bool bFastMode=false);
 	virtual ~CPaintImgDealer();
 	void GetImgData(const Mat img);
 
@@ -57,6 +57,7 @@ public:
 
 	//seeds;
 	bool DealConnection(int nIndex, Vec3b v, bool * pVisitMap, vector<int> &vecConn, Vec3i &vecSum);
+	bool DealConnection_FindSameReg(int nIndex, bool * pVisitMap, vector<int> &vecConn, vector<int> &vecNeib);
 	bool FindSeed_ByAvg(int nIndex, vector<int> &vecLoc);
 	Vec3b GetMeanV(vector<int> vecLoc);
 	bool IsEqual(Vec3b v, Vec3b dst);
@@ -72,7 +73,8 @@ public:
 	bool UpdateRegionInfo(Vec3b v, vector<int> vecLoc, int &nNewIndex);
 	void DealResidual();
 	void RemoveIsolatedPixel();
-	bool  ColorReassign(int nNewColorNum);
+	bool ColorReassign(int nNewColorNum);
+	int  CheckRegionStatus();
 
 	//index map;
 	void IndexMapErosion(vector<int> &vecConn);

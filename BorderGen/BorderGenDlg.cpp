@@ -80,7 +80,7 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		//复杂图的处理;
 		else
 		{
-			CPaintImgDealer pid(img);
+			CPaintImgDealer pid(img,pDlg->m_bFastMode);
 			struInParam ip;
 			ip.strBorderFile = strBorder;
 			//如果要生成填色图;
@@ -126,6 +126,7 @@ CBorderGenDlg::CBorderGenDlg(CWnd* pParent /*=NULL*/)
 	, m_bGenColorMap(0)
 	, m_nColorDistThre(20)
 	, m_nFinalColorNum(24)
+	, m_bFastMode(false)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -164,6 +165,7 @@ BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_RADIO_THICK, &CBorderGenDlg::OnBnClickedRadioThick)
 	ON_BN_CLICKED(IDC_RADIO_SLIM, &CBorderGenDlg::OnBnClickedRadioSlim)
 	ON_BN_CLICKED(IDC_CHECK_SPEC_COLORNUM, &CBorderGenDlg::OnBnClickedCheckSpecColornum)
+	ON_BN_CLICKED(IDC_CHECK_FASTMODE, &CBorderGenDlg::OnBnClickedCheckFastmode)
 END_MESSAGE_MAP()
 
 
@@ -647,4 +649,15 @@ void CBorderGenDlg::OnBnClickedCheckSpecColornum()
 	CEdit   * pEditColorNum = (CEdit *)GetDlgItem(IDC_EDIT_PARAM_COLORNUM);
 
 	pEditColorNum->EnableWindow(pBtnSetClorNum->GetCheck());
+}
+
+
+void CBorderGenDlg::OnBnClickedCheckFastmode()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CButton * pButton = (CButton *)GetDlgItem(IDC_CHECK_FASTMODE);
+	if (pButton->GetCheck())
+		m_bFastMode = true;
+	else
+		m_bFastMode = false;
 }
