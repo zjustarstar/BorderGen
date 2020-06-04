@@ -12,7 +12,6 @@
 using namespace std;
 using namespace cv;
 
-#define THREAD_NUM    4
 #define BORDER_FOLDER "border_result"
 
 struct struProgress {
@@ -32,15 +31,17 @@ public:
 	CBorderGenDlg(CWnd* pParent = NULL);	// 标准构造函数
 
 	CString              m_strFilePath;  //文件夹路径;
-	std::vector<string>  m_vecFiles;
+	std::vector<string>  m_vecFiles;     //用于多线程处理,处理结束后就空了;
+	std::vector<string>  m_vecOriFiles;  //保存了原始文件的信息;
 	CCriticalSection     m_csFiles;  //用于vecFiles的共享访问;
 	struProgress       * m_pStruProg; //存储每个线程处理的文件及进度信息;从1开始，不是0
 	bool                 m_bSimpleVersion;   //哪种方法
+	int                  m_nColorMode;       //选用的颜色空间;
 	bool                 m_bWhiteBG;         //生成图的背景颜色;
 	bool                 m_bThickBorder;     //粗边界;
 	int					 m_nMinArea;
 	bool                 m_bGenColorMap;
-	string  GetSaveFile(string strExt, string &strFile);
+	string  GetSaveFile(string strExt, int nColorMode, string &strFile);
 
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -97,4 +98,7 @@ public:
 	// 快速模式下的算法实现
 	bool m_bFastMode;
 	afx_msg void OnBnClickedCheckFastmode();
+	afx_msg void OnBnClickedRadioColorRgb();
+	afx_msg void OnBnClickedRadioColorHsv();
+	afx_msg void OnBnClickedRadioColorLab();
 };

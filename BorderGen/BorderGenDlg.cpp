@@ -59,8 +59,8 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		nFileId++;
 
 		//要保存的图片的路径;
-		string strBorder = pDlg->GetSaveFile("border",strFile);
-		string strColor  = pDlg->GetSaveFile("color", strFile);
+		string strBorder = pDlg->GetSaveFile("border", pDlg->m_nColorMode, strFile);
+		string strColor  = pDlg->GetSaveFile("color", pDlg->m_nColorMode, strFile);
 		//写日志;
 		string s(pDlg->m_strFilePath.GetBuffer(0));
 		pDlg->m_pStruProg[nFileId].strFile = strFile;
@@ -80,7 +80,6 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		//复杂图的处理;
 		else
 		{
-			CPaintImgDealer pid(img,pDlg->m_bFastMode);
 			struInParam ip;
 			ip.strBorderFile = strBorder;
 			//如果要生成填色图;
@@ -88,6 +87,7 @@ UINT ThreadGenBorder(LPVOID pParam) {
 				ip.strColorFile = strColor;
 
 			//设置参数;
+			ip.nColorMode = pDlg->m_nColorMode;
 			ip.nProgress = p;
 			ip.nColorThre = pDlg->m_nColorDistThre;
 			ip.bWhiteBG = pDlg->m_bWhiteBG;
@@ -95,7 +95,8 @@ UINT ThreadGenBorder(LPVOID pParam) {
 			ip.nMinAreaThre = pDlg->m_nMinArea;
 			ip.nFinalClrNum = pDlg->m_nFinalColorNum;
 
-			pid.MainProc(ip);
+			CPaintImgDealer pid(img,ip, pDlg->m_bFastMode);
+			pid.MainProc();
 		}
 
 	}
@@ -145,7 +146,6 @@ void CBorderGenDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_PARAM_REGIONMINSIZE, m_nMinArea);
 	DDX_Text(pDX, IDC_EDIT_PARAM_COLORDIST, m_nColorDistThre);
 	DDX_Text(pDX, IDC_EDIT_PARAM_COLORNUM, m_nFinalColorNum);
-	//DDX_Text(pDX, IDC_CHECK_GENCOLORMAP, m_bGenColorMap);
 }
 
 BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
@@ -166,6 +166,9 @@ BEGIN_MESSAGE_MAP(CBorderGenDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_RADIO_SLIM, &CBorderGenDlg::OnBnClickedRadioSlim)
 	ON_BN_CLICKED(IDC_CHECK_SPEC_COLORNUM, &CBorderGenDlg::OnBnClickedCheckSpecColornum)
 	ON_BN_CLICKED(IDC_CHECK_FASTMODE, &CBorderGenDlg::OnBnClickedCheckFastmode)
+	ON_BN_CLICKED(IDC_RADIO_COLOR_RGB, &CBorderGenDlg::OnBnClickedRadioColorRgb)
+	ON_BN_CLICKED(IDC_RADIO_COLOR_HSV, &CBorderGenDlg::OnBnClickedRadioColorHsv)
+	ON_BN_CLICKED(IDC_RADIO_COLOR_LAB, &CBorderGenDlg::OnBnClickedRadioColorLab)
 END_MESSAGE_MAP()
 
 
@@ -207,6 +210,7 @@ BOOL CBorderGenDlg::OnInitDialog()
 	m_bWhiteBG       = true;
 	m_bThickBorder   = false;
 	m_bGenColorMap	 = true;
+	m_nColorMode     = COLOR_RGB;
 
 	CButton * pBtnSVersion = (CButton *)GetDlgItem(IDC_RADIO_SIMPLEIMG);
 	CButton * pBtnCVersion = (CButton *)GetDlgItem(IDC_RADIO_COMPLEXIMG);
@@ -218,6 +222,14 @@ BOOL CBorderGenDlg::OnInitDialog()
 	CButton * pBtnSetClorNum  = (CButton *)GetDlgItem(IDC_CHECK_SPEC_COLORNUM);
 	CEdit   * pEditColorNum = (CEdit *)GetDlgItem(IDC_EDIT_PARAM_COLORNUM);
 
+	//颜色空间;
+	CButton * pColorRGB = (CButton *)GetDlgItem(IDC_RADIO_COLOR_RGB);
+	CButton * pColorHSV = (CButton *)GetDlgItem(IDC_RADIO_COLOR_HSV);
+	CButton * pColorLAB = (CButton *)GetDlgItem(IDC_RADIO_COLOR_LAB);
+	pColorRGB->SetCheck(1);
+	pColorLAB->SetCheck(0);
+	pColorHSV->SetCheck(0);
+	
 	pGenColorButton->SetCheck(1);
 	pBtnCVersion->SetCheck(1);
 	pBtnSVersion->SetCheck(0);
@@ -285,7 +297,7 @@ HCURSOR CBorderGenDlg::OnQueryDragIcon()
 
 //将文件名从d:\\xxx.jpg改为d:\\xxx_strExt\\.jpg;
 
-string CBorderGenDlg::GetSaveFile(string strExt,string &strFile) {
+string CBorderGenDlg::GetSaveFile(string strExt,int nColorMode, string &strFile) {
 
 	CString strBorderFolder = m_strFilePath;
 	strBorderFolder = strBorderFolder + "\\" + BORDER_FOLDER;
@@ -307,6 +319,14 @@ string CBorderGenDlg::GetSaveFile(string strExt,string &strFile) {
 	int nIndex = strFileName.rfind('.');
 	string strBorder = strFileName.substr(0, nIndex);
 	strBorder = strBorder + "_" + strExt;
+
+	//文件名中带有颜色模式;
+	string strColorMode = "rgb";
+	if (nColorMode == COLOR_LAB)
+		strColorMode = "lab";
+	else if (nColorMode == COLOR_HSV)
+		strColorMode = "hsv";
+	strBorder = strBorder + "_" + strColorMode;
 	strBorder = strBorder.append(".jpg");
 
 	return strBorder;
@@ -344,24 +364,18 @@ void CBorderGenDlg::OnBnClickedButtonBrowser()
 	strTile.Format("一共有%d个文件", nSize);
 	m_sttTotal.SetWindowText(strTile);
 
-	//保存的文件及进度信息;
-	if (m_pStruProg)
-	{
-		delete[] m_pStruProg;
-		m_pStruProg = NULL;
-	}
-
-	m_pStruProg = new struProgress[nSize+1];  //下标0不用;
-
 	//将所有图像文件保存在vector中;
 	m_vecFiles.clear();
+	m_vecOriFiles.clear();
 	for (int i = 0; i < nSize; i++)
 	{
 		CString strFileName;
 		m_lbFiles.GetText(i, strFileName);
 		string s(strFileName.GetBuffer(0));
 		m_vecFiles.push_back(s);
+		m_vecOriFiles.push_back(s);
 	}
+	
 }
 
 //是不是后缀带_border的文件;
@@ -510,6 +524,18 @@ void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 		m_nFinalColorNum = 0;
 
 	nFileId = 0;  
+	if (m_vecFiles.empty())
+		m_vecFiles = m_vecOriFiles;
+	m_reLog.Clear();
+
+	//保存的文件及进度信息;
+	if (m_pStruProg)
+	{
+		delete[] m_pStruProg;
+		m_pStruProg = NULL;
+	}
+	int nSize = m_lbFiles.GetCount();
+	m_pStruProg = new struProgress[nSize + 1];  //下标0不用;
 
 	CString strBorderFolder = m_strFilePath;
 	strBorderFolder = strBorderFolder + "\\" + BORDER_FOLDER;
@@ -517,7 +543,7 @@ void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 		CreateDirectory(strBorderFolder,NULL);
 
 	// TODO: 在此添加控件通知处理程序代码
-	for (int i = 0; i < THREAD_NUM; i++)
+	for (int i = 0; i < m_nThreadNum; i++)
 		AfxBeginThread(ThreadGenBorder, (void *)this, THREAD_PRIORITY_HIGHEST);
 
 	m_btnStart.EnableWindow(FALSE);
@@ -533,7 +559,7 @@ void CBorderGenDlg::OnTimer(UINT_PTR nIDEvent)
 	if (!m_pStruProg)
 		return;
 
-	CString strTotalText = "**************点击[开始处理]按钮，进行处理**************\n";
+	CString strTotalText = "**************点击[框图生成]按钮，进行处理**************\n";
 	int nFinished = 0;
 	for (int i = 1; i <= m_lbFiles.GetCount(); i++){
 		string strFile   = m_pStruProg[i].strFile;
@@ -660,4 +686,25 @@ void CBorderGenDlg::OnBnClickedCheckFastmode()
 		m_bFastMode = true;
 	else
 		m_bFastMode = false;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioColorRgb()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_nColorMode = COLOR_RGB;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioColorHsv()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_nColorMode = COLOR_HSV;
+}
+
+
+void CBorderGenDlg::OnBnClickedRadioColorLab()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_nColorMode = COLOR_LAB;
 }

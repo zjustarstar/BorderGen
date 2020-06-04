@@ -6,6 +6,10 @@
 using namespace std;
 using namespace cv;
 
+#define COLOR_RGB 0
+#define COLOR_HSV 1
+#define COLOR_LAB 2
+
 
 typedef struct struBin{
 	int    nCount;  //bin中元素个数;
@@ -21,7 +25,7 @@ typedef struct struInParam {
 	string strColorFile;    //生成的涂色文件;
 	int  * nProgress;       //表示进度;
 
-	bool   bRGBData;        //使用的颜色空间;
+	int    nColorMode;      //使用的颜色空间;
 	bool   bWhiteBG;        //生成边界文件的背景默认是白色的;
 	bool   bThickBd;        //是否生成粗边界;
 	int    nColorThre;      //颜色阈值;
@@ -31,7 +35,7 @@ typedef struct struInParam {
 		strBorderFile = "";
 		strColorFile = "";
 		nProgress = NULL;
-		bRGBData  = true;
+		nColorMode  = COLOR_RGB;
 		bWhiteBG  = true;
 		bThickBd  = true;
 		nColorThre = 20;
@@ -44,7 +48,7 @@ class CPaintImgDealer
 {
 public:
 	CPaintImgDealer();
-	CPaintImgDealer(Mat img, bool bFastMode=false);
+	CPaintImgDealer(Mat img, struInParam param, bool bFastMode=false);
 	virtual ~CPaintImgDealer();
 	void GetImgData(const Mat img);
 
@@ -52,7 +56,7 @@ public:
 	void QuantifySat_Val(struBin * pBin, vector<int> *pVecIndex, bool bSat);
 	void QuantifyHue(struBin * pBin, vector<int> *pVecIndex);
 
-	void MainProc(struInParam param);
+	void MainProc();
 	void MainProc_bySeg(Mat & resultImg);
 
 	//seeds;
@@ -83,14 +87,11 @@ public:
 	Vec3b  CalcAvgValue(int nIndex);
 
 private:
-	int   m_nColorDistThre;  //颜色距离阈值;
-	int   m_nMinRegNum;      //最小区域像素数;
-	int   m_nFinalColorNum;  //最终颜色数量;
+	struInParam m_param;
 	Mat     m_OriImg;
 	int     m_nW, m_nH;      //图像宽高;
-	bool    m_bUseRGB;       //是否使用RGB数据;
 	Vec3b   * m_pBgrData;    //Rgb图像数据;
-	Vec3b   * m_pHsvData;    //hsv图像数据;
+	Vec3b   * m_pHsvData;    //hsv或者lab图像数据;
 	Vec3b   * m_pData;       //当前使用的数据;
 
 	unsigned int   * m_pIndexMap;     //每个像素所属的区域index;    

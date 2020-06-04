@@ -10,8 +10,6 @@ CPaintImgDealer::CPaintImgDealer()
 {
 	m_pBgrData = NULL;
 	m_pHsvData = NULL;
-
-	m_nMinRegNum = 100;
 }
 
 
@@ -28,10 +26,12 @@ CPaintImgDealer::~CPaintImgDealer()
 }
 
 
-CPaintImgDealer::CPaintImgDealer(Mat img,bool bFastMode)
+CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param, bool bFastMode)
 {
 	if (img.empty())
 		return;
+
+	m_param = param;
 
 	//平滑预处理;
 	if (!bFastMode) {
@@ -159,6 +159,8 @@ void CPaintImgDealer::GetImgData(const Mat img){
 
 	Mat hsvImg;
 	cvtColor(img, hsvImg, CV_BGR2HSV);
+	if (m_param.nColorMode == COLOR_LAB)
+		cvtColor(img, hsvImg, CV_BGR2Lab);		
 
 	if (!m_pBgrData || !m_pHsvData)
 		return;
@@ -519,7 +521,7 @@ bool CPaintImgDealer::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc) {
 	vecLoc.push_back(nIndex);
 
 	//如果相同像素的点不够多,也不算找到;
-	if (nTotalNum < m_nMinRegNum)
+	if (nTotalNum < m_param.nMinAreaThre)
 		return false;
 
 	return true;
@@ -577,13 +579,16 @@ void CPaintImgDealer::GenMapImageByRegColor(string strFile, bool bColorReassign)
 		m.at<Vec3b>(nRow, nCol) = v;
 	}
 
-	if (!m_bUseRGB)
+	if (m_param.nColorMode == COLOR_LAB)
+		cvtColor(m, m, CV_Lab2BGR);
+	else if (m_param.nColorMode == COLOR_HSV)
 		cvtColor(m, m, CV_HSV2BGR);
 
 	char strNewFile_png[256];
 	int nColorSize = m_vecReg.size();
 	if (bColorReassign)
-		nColorSize = m_nFinalColorNum;
+		nColorSize = m_param.nFinalClrNum;
+
 	string file = strFile.substr(0, strFile.length() - 4);
 	sprintf_s(strNewFile_png, "%s_%d_%d.png", file.c_str(), nColorSize, nRegCnt);
 	imwrite(strNewFile_png, m);
@@ -791,14 +796,39 @@ bool CPaintImgDealer::UpdateRegionInfo(Vec3b v, vector<int> vecLoc, int &nNewInd
 
 bool CPaintImgDealer::IsEqual(Vec3b v, Vec3b dst) {
 
-	bool n1 = abs(v[0] - dst[0]) < m_nColorDistThre;
-	bool n2 = abs(v[1] - dst[1]) < m_nColorDistThre;
-	bool n3 = abs(v[2] - dst[2]) < m_nColorDistThre;
+	if (m_param.nColorMode == COLOR_RGB )
+	{
+		bool n1 = abs(v[0] - dst[0]) < m_param.nColorThre;
+		bool n2 = abs(v[1] - dst[1]) < m_param.nColorThre;
+		bool n3 = abs(v[2] - dst[2]) < m_param.nColorThre;
 
-	if (n1 && n2 && n3)
-		return true;
-	else
-		return false;
+		if (n1 && n2 && n3)
+			return true;
+		else
+			return false;
+	}
+	else if (m_param.nColorMode == COLOR_LAB)
+	{
+		float f1 = (v[0] - dst[0]) * (v[0] - dst[0]);
+		float f2 = (v[1] - dst[1]) * (v[1] - dst[1]);
+		float f3 = (v[2] - dst[2]) * (v[2] - dst[2]);
+		float d = sqrt(f1 + f2 + f3);
+		if (d < m_param.nColorThre)
+			return true;
+		else
+			return false;
+	}
+	else if (m_param.nColorMode == COLOR_HSV){
+		//H是[0, 180],1.5= 255/180;
+		float f1 = (v[0] - dst[0]) * 1.42 * (v[0] - dst[0]) * 1.42;
+		float f2 = (v[1] - dst[1]) * (v[1] - dst[1]);
+		float f3 = (v[2] - dst[2]) * (v[2] - dst[2]);
+		float d = sqrt(f1 + f2 + f3);
+		if (d < m_param.nColorThre)
+			return true;
+		else
+			return false;
+	}
 	
 }
 
@@ -1053,7 +1083,7 @@ int CPaintImgDealer::CheckRegionStatus() {
 		}
 
 		//小于指定的区域数量;
-		if (vecRegIndex.size() < m_nMinRegNum) {
+		if (vecRegIndex.size() < m_param.nMinAreaThre) {
 
 			//去除集合中的相同index
 			sort(vecNeibIndex.begin(), vecNeibIndex.end());
@@ -1090,17 +1120,12 @@ int CPaintImgDealer::CheckRegionStatus() {
 }
 
 //param是所有输入参数的结构体;
-void  CPaintImgDealer::MainProc(struInParam param) {
+void  CPaintImgDealer::MainProc() {
 	//使用的颜色空间;
-	if (param.bRGBData)
+	if (m_param.nColorMode == COLOR_RGB)
 		m_pData = m_pBgrData;
 	else
 		m_pData = m_pHsvData;
-
-	m_bUseRGB = param.bRGBData;
-	m_nColorDistThre = param.nColorThre;
-	m_nMinRegNum = param.nMinAreaThre;
-	m_nFinalColorNum = param.nFinalClrNum;
 
 	vector<int> vecLoc;
 	int nCurIndex = 1;
@@ -1110,7 +1135,7 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 	{
 		//进度...
 		float f = i * 1.0 / nSize;
-		(*(param.nProgress)) = int(f * 100 + 0.5);
+		(*(m_param.nProgress)) = int(f * 100 + 0.5);
 
 		//已经访问过的,不再访问;
 		if (m_pIndexMap[i]) continue;
@@ -1153,8 +1178,8 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 
 	//保存未处理residual区域的图;
 	string residualFile;
-	int len = param.strBorderFile.length();
-	residualFile = param.strBorderFile.substr(0, len - 4);
+	int len = m_param.strBorderFile.length();
+	residualFile = m_param.strBorderFile.substr(0, len - 4);
 	residualFile = residualFile + "_residual.jpg";
 	//GenMapImageByIndex(residualFile, 0, Vec3b(255, 255, 255));
 	//处理未有归属区域的;
@@ -1162,13 +1187,13 @@ void  CPaintImgDealer::MainProc(struInParam param) {
 	//删除孤立像素点;
 	RemoveIsolatedPixel();
 
-	GenMapImageByRegColor(param.strColorFile);
+	GenMapImageByRegColor(m_param.strColorFile);
 
 	//颜色数量的压缩;压缩后重新生成;
-	if (param.nFinalClrNum > 0){
-		bool bRet = ColorReassign(param.nFinalClrNum);
-		GenMapImageByRegColor(param.strColorFile,bRet);
+	if (m_param.nFinalClrNum > 0){
+		bool bRet = ColorReassign(m_param.nFinalClrNum);
+		GenMapImageByRegColor(m_param.strColorFile,bRet);
 	}
 
-	GenBorderImg(param.strBorderFile,param.bWhiteBG,param.bThickBd);
+	GenBorderImg(m_param.strBorderFile,m_param.bWhiteBG,m_param.bThickBd);
 }
