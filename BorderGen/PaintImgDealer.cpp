@@ -1,8 +1,8 @@
-#include "stdafx.h"
 #include "PaintImgDealer.h"
 #include "L0Smooth.h"
-
 #include <opencv2/imgproc/types_c.h>
+
+#pragma comment(lib,"opencv_world400.lib")
 
 #define ENABLE_GENERATE_INDEXMAP 0
 
@@ -26,7 +26,7 @@ CPaintImgDealer::~CPaintImgDealer()
 }
 
 
-CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param, bool bFastMode)
+CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param)
 {
 	if (img.empty())
 		return;
@@ -34,7 +34,7 @@ CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param, bool bFastMode)
 	m_param = param;
 
 	//平滑预处理;
-	if (!bFastMode) {
+	if (!param.bFastMode) {
 		CL0Smooth ls;
 		img = ls.L0Smoothing(img);
 	}
@@ -56,13 +56,14 @@ CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param, bool bFastMode)
 	memset(m_bVisit, 0, sizeof(bool)*nSize);
 	memset(m_pIndexMap, 0, sizeof(unsigned int)*nSize);
 
+	//测试用;
 	static int i = 0;
 	char strName[256];
 	sprintf_s(strName, "d:\\%d.jpg", i++);
 	//imwrite(string(strName), dstImg);
 
 	//速度要求比较快时...
-	if (bFastMode)
+	if (param.bFastMode)
 	{
 		Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5, -1, 0, -1, 0);
 		filter2D(img, img, img.depth(), kernel);
@@ -167,7 +168,6 @@ void CPaintImgDealer::GetImgData(const Mat img){
 
 	for (int r = 0; r < h; r++)
 	{
-		//uchar* pdata = img.ptr<uchar>(r);
 		for (int c = 0; c < w; c++)
 		{
 			m_pBgrData[c + r * w] = img.at<Vec3b>(r, c);
@@ -201,9 +201,6 @@ void CPaintImgDealer::MainProc_bySeg(Mat & resultImg) {
 
 	//m = m_OriImg;
 	GaussianBlur(m_OriImg, m, cvSize(3, 3), 0);
-
-	//namedWindow("blur");
-	//imshow("blur", m);
 
 	Mat gray;
 	cvtColor(m, gray, CV_BGR2GRAY);
@@ -242,104 +239,6 @@ void CPaintImgDealer::MainProc_bySeg(Mat & resultImg) {
 	resultImg = grad;
 }
 
-/*
-void CPaintImgDealer::MainProc(Mat & resultImg){
-	struBin * pBin = new struBin[10];
-	vector<int> *pVecIndex = new vector<int>[10];
-
-	Mat hsvImg;
-	cvtColor(m_OriImg, hsvImg, CV_BGR2HSV);
-	
-	//对饱和度进行量化;
-	QuantifySat_Val(pBin, pVecIndex,true);
-	for (int i = 0; i < 10; i++)
-	{
-		vector<int> vec = pVecIndex[i];
-		int nAvgSat = int(pBin[i].dSum / pBin[i].nCount);
-		for (int kk = 0; kk < vec.size(); kk++)
-		{
-			int index = vec[kk];
-			Vec3b v = m_pHsvData[index];
-			v[1] = nAvgSat;  //将每个bin里面的元素的s分量，改为该bin里饱和度的平均值;
-
-			int r = index / m_nW;
-			int c = index % m_nW;
-
-			m_pHsvData[index] = v;
-			hsvImg.at<Vec3b>(r, c) = v;
-		}
-	}
-
-	memset(pBin, 0, sizeof(struBin));
-	for (int i = 0; i < 10; i++)
-		pVecIndex[i].clear();
-	
-	//对亮度进行量化;
-	QuantifySat_Val(pBin, pVecIndex, false);
-	for (int i = 0; i < 10; i++)
-	{
-		vector<int> vec = pVecIndex[i];
-		int nAvgSat = int(pBin[i].dSum / pBin[i].nCount);
-		for (int kk = 0; kk < vec.size(); kk++)
-		{
-			int index = vec[kk];
-			Vec3b v = m_pHsvData[index];
-			v[2] = nAvgSat;  //将每个bin里面的元素的s分量，改为该bin里饱和度的平均值;
-
-			int r = index / m_nW;
-			int c = index % m_nW;
-
-			m_pHsvData[index] = v;
-			hsvImg.at<Vec3b>(r, c) = v;
-		}
-	}
-
-	Mat m1,m1g;
-	cvtColor(hsvImg, m1, CV_HSV2BGR);
-	imwrite("d:\\quan1.jpg", m1);
-
-	//namedWindow("new1");
-	//imshow("new1", hsvImg);
-
-	/////////////////////////色度的量化////////////////////////
-	struBin * pHueBin = new struBin[8];
-	vector<int> *pVecHueIndex = new vector<int>[8];
-	QuantifyHue(pHueBin, pVecHueIndex);
-	for (int i = 0; i < 8; i++)
-	{
-		vector<int> vec = pVecHueIndex[i];
-		int nAvgHue = int(pHueBin[i].dSum / pHueBin[i].nCount);
-		for (int kk = 0; kk < vec.size(); kk++)
-		{
-			int index = vec[kk];
-			Vec3b v = m_pHsvData[index];
-			v[0] = nAvgHue;  //将每个bin里面的元素的h分量，改为该bin里饱和度的平均值;
-
-			int r = index / m_nW;
-			int c = index % m_nW;
-			hsvImg.at<Vec3b>(r, c) = v;
-		}
-	}
-
-	Mat m2,m2g;
-	cvtColor(hsvImg, m2, CV_HSV2BGR);
-	imwrite("d:\\quan2.jpg", m2);
-	resultImg = m2.clone();
-
-	//namedWindow("new2");
-	//imshow("new2", hsvImg);
-
-	delete[] pBin;
-	for (int i = 0; i < 10; i++)
-		pVecIndex[i].clear();
-	delete[] pVecIndex;
-	
-	delete[] pHueBin;
-	for (int i = 0; i < 8; i++)
-		pVecHueIndex[i].clear();
-	delete[] pVecHueIndex;
-}
-*/
 
 //查找属于同一区域的所有点。仅处理nIndex点的八连通区域的数据,基于输入的v值进行查找;
 //nIndex: 要处理的点的坐标;  
@@ -508,13 +407,6 @@ bool CPaintImgDealer::FindSeed_ByAvg(int nIndex, vector<int> &vecLoc) {
 		int k = vecConn.size();
 		for (int i = 0; i < k; i++)
 			vecSeedLoc.push_back(vecConn[i]);
-
-		//更新种子平均值;
-		/*for (int i = 0; i < 3; i++)
-		{
-			vdSum[i] += vSum[i];
-			vAvg[i] = vdSum[i] / (vecSeedLoc.size() + nTotalNum) + 0.5;  //nTotalNum是被弹出的那些元素;
-		}*/
 	}
 
 	//将当前的nIndex像素压入最终的栈;
@@ -777,7 +669,7 @@ bool CPaintImgDealer::UpdateRegionInfo(Vec3b v, vector<int> vecLoc, int &nNewInd
 	//增加新区域;
 	else
 	{
-		struRegionInfo ri;
+		_struRegionInfo ri;
 		ri.nIndex = nNewIndex;
 		ri.v = v;
 		m_vecReg.push_back(ri);
@@ -1130,11 +1022,13 @@ void  CPaintImgDealer::MainProc() {
 	vector<int> vecLoc;
 	int nCurIndex = 1;
 	int nSize = m_nW * m_nH;
+	//前面的操作默认最多进行到95%
+	int nProcess = nSize + nSize * 0.05;
 
 	for (int i = 0; i < nSize; i++)
 	{
 		//进度...
-		float f = i * 1.0 / nSize;
+		float f = i * 1.0 / nProcess;
 		(*(m_param.nProgress)) = int(f * 100 + 0.5);
 
 		//已经访问过的,不再访问;
@@ -1173,9 +1067,6 @@ void  CPaintImgDealer::MainProc() {
 			m_bVisit[vecLoc[j]] = false;
 	}
 
-	//GenMapImageByIndex("residual.jpg", 0, Vec3b(255, 255, 255));
-	//GenMapImageByRegColor("regions.jpg");
-
 	//保存未处理residual区域的图;
 	string residualFile;
 	int len = m_param.strBorderFile.length();
@@ -1187,6 +1078,7 @@ void  CPaintImgDealer::MainProc() {
 	//删除孤立像素点;
 	RemoveIsolatedPixel();
 
+	(*(m_param.nProgress)) = 97;
 	GenMapImageByRegColor(m_param.strColorFile);
 
 	//颜色数量的压缩;压缩后重新生成;
@@ -1195,5 +1087,8 @@ void  CPaintImgDealer::MainProc() {
 		GenMapImageByRegColor(m_param.strColorFile,bRet);
 	}
 
+	(*(m_param.nProgress)) = 99;
 	GenBorderImg(m_param.strBorderFile,m_param.bWhiteBG,m_param.bThickBd);
+
+	(*(m_param.nProgress)) = 100;
 }

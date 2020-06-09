@@ -89,13 +89,14 @@ UINT ThreadGenBorder(LPVOID pParam) {
 			//ÉèÖÃ²ÎÊý;
 			ip.nColorMode = pDlg->m_nColorMode;
 			ip.nProgress = p;
+			ip.bFastMode = pDlg->m_bFastMode;
 			ip.nColorThre = pDlg->m_nColorDistThre;
 			ip.bWhiteBG = pDlg->m_bWhiteBG;
 			ip.bThickBd = pDlg->m_bThickBorder;
 			ip.nMinAreaThre = pDlg->m_nMinArea;
 			ip.nFinalClrNum = pDlg->m_nFinalColorNum;
 
-			CPaintImgDealer pid(img,ip, pDlg->m_bFastMode);
+			CPaintImgDealer pid(img,ip);
 			pid.MainProc();
 		}
 

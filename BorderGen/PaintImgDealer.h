@@ -1,7 +1,6 @@
 #pragma once
 
 #include <opencv2\opencv.hpp>
-#include "..\..\BorderGen\BorderGen\ImgQuantify.h"
 
 using namespace std;
 using namespace cv;
@@ -10,6 +9,10 @@ using namespace cv;
 #define COLOR_HSV 1
 #define COLOR_LAB 2
 
+struct _struRegionInfo {
+	Vec3b v;        //rgb值;
+	int   nIndex;   //区域index;
+};
 
 typedef struct struBin{
 	int    nCount;  //bin中元素个数;
@@ -25,6 +28,7 @@ typedef struct struInParam {
 	string strColorFile;    //生成的涂色文件;
 	int  * nProgress;       //表示进度;
 
+	bool   bFastMode;       //使用快速模式;
 	int    nColorMode;      //使用的颜色空间;
 	bool   bWhiteBG;        //生成边界文件的背景默认是白色的;
 	bool   bThickBd;        //是否生成粗边界;
@@ -36,6 +40,7 @@ typedef struct struInParam {
 		strColorFile = "";
 		nProgress = NULL;
 		nColorMode  = COLOR_RGB;
+		bFastMode = false;
 		bWhiteBG  = true;
 		bThickBd  = true;
 		nColorThre = 20;
@@ -48,7 +53,7 @@ class CPaintImgDealer
 {
 public:
 	CPaintImgDealer();
-	CPaintImgDealer(Mat img, struInParam param, bool bFastMode=false);
+	CPaintImgDealer(Mat img, struInParam param);
 	virtual ~CPaintImgDealer();
 	void GetImgData(const Mat img);
 
@@ -96,6 +101,6 @@ private:
 
 	unsigned int   * m_pIndexMap;     //每个像素所属的区域index;    
 	bool           * m_bVisit;        //是否被访问过的标记;
-	vector<struRegionInfo> m_vecReg;  //所有量化颜色区域的信息;
+	vector<_struRegionInfo> m_vecReg;  //所有量化颜色区域的信息;
 };
 
