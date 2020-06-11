@@ -51,6 +51,12 @@
     <ClInclude Include="ClosureDetDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="LibBorderGen.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="public_def.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BorderGen.cpp">
@@ -78,6 +84,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ClosureDetDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LibBorderGen.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

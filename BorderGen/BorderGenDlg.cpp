@@ -81,10 +81,10 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		else
 		{
 			struInParam ip;
-			ip.strBorderFile = strBorder;
+			ip.strBorderFile = const_cast<char *>(strBorder.c_str());
 			//如果要生成填色图;
 			if (pDlg->m_bGenColorMap)
-				ip.strColorFile = strColor;
+				ip.strColorFile = const_cast<char *>(strColor.c_str());;
 
 			//设置参数;
 			ip.nColorMode = pDlg->m_nColorMode;
@@ -101,6 +101,12 @@ UINT ThreadGenBorder(LPVOID pParam) {
 		}
 
 	}
+
+	if (pDlg->m_vecFiles.size() == 0) {
+		pDlg->m_bFinish = true;
+		time(&pDlg->m_tEnd);
+	}
+		
 
 	return 1;
 }
@@ -212,6 +218,7 @@ BOOL CBorderGenDlg::OnInitDialog()
 	m_bThickBorder   = false;
 	m_bGenColorMap	 = true;
 	m_nColorMode     = COLOR_RGB;
+	m_bFastMode      = true;
 
 	CButton * pBtnSVersion = (CButton *)GetDlgItem(IDC_RADIO_SIMPLEIMG);
 	CButton * pBtnCVersion = (CButton *)GetDlgItem(IDC_RADIO_COMPLEXIMG);
@@ -222,6 +229,9 @@ BOOL CBorderGenDlg::OnInitDialog()
 	CButton * pGenColorButton = (CButton *)GetDlgItem(IDC_CHECK_GENCOLORMAP);
 	CButton * pBtnSetClorNum  = (CButton *)GetDlgItem(IDC_CHECK_SPEC_COLORNUM);
 	CEdit   * pEditColorNum = (CEdit *)GetDlgItem(IDC_EDIT_PARAM_COLORNUM);
+
+	CButton * pChkFastModeBtn = (CButton *)GetDlgItem(IDC_CHECK_FASTMODE);
+	pChkFastModeBtn->SetCheck(1);
 
 	//颜色空间;
 	CButton * pColorRGB = (CButton *)GetDlgItem(IDC_RADIO_COLOR_RGB);
@@ -543,6 +553,8 @@ void CBorderGenDlg::OnBnClickedButtonBatchprocess()
 	if (!PathFileExists(strBorderFolder))
 		CreateDirectory(strBorderFolder,NULL);
 
+	time(&m_tStart);
+	m_bFinish = false;
 	// TODO: 在此添加控件通知处理程序代码
 	for (int i = 0; i < m_nThreadNum; i++)
 		AfxBeginThread(ThreadGenBorder, (void *)this, THREAD_PRIORITY_HIGHEST);
@@ -580,6 +592,15 @@ void CBorderGenDlg::OnTimer(UINT_PTR nIDEvent)
 			nFinished++;
 		}
 		strTotalText += strText;
+	}
+
+	if (m_bFinish)
+	{
+		char info[256];
+		double d = difftime(m_tEnd, m_tStart);
+		d = d / m_vecOriFiles.size();
+		sprintf_s(info, "平均耗时:%.1f秒", d);
+		strTotalText = strTotalText + CString(info);
 	}
 
 	m_reLog.SetWindowText(strTotalText);

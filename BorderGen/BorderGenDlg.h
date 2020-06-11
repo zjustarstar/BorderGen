@@ -5,6 +5,7 @@
 #pragma once
 #include "afxwin.h"
 #include <vector>
+#include <time.h>
 #include <string>
 #include "afxcmn.h"
 #include <opencv2\opencv.hpp>
@@ -41,6 +42,8 @@ public:
 	bool                 m_bThickBorder;     //粗边界;
 	int					 m_nMinArea;
 	bool                 m_bGenColorMap;
+	time_t               m_tStart, m_tEnd;   //记录运行时间
+	bool                 m_bFinish;          //程序是否运行结束;
 	string  GetSaveFile(string strExt, int nColorMode, string &strFile);
 
 // 对话框数据

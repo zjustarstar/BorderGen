@@ -2,7 +2,6 @@
 #include "L0Smooth.h"
 #include <opencv2/imgproc/types_c.h>
 
-#pragma comment(lib,"opencv_world400.lib")
 
 #define ENABLE_GENERATE_INDEXMAP 0
 
@@ -25,21 +24,27 @@ CPaintImgDealer::~CPaintImgDealer()
 		delete[] m_bVisit;
 }
 
-
-CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param)
-{
+bool CPaintImgDealer::init(Mat img, struInParam param) {
 	if (img.empty())
-		return;
+		return false;
+
+	//参数不能设的太小了.
+	if (param.nColorThre < 2 || param.nMinAreaThre < 1)
+		return false;
 
 	m_param = param;
 
 	//平滑预处理;
+	Mat out;
 	if (!param.bFastMode) {
 		CL0Smooth ls;
 		img = ls.L0Smoothing(img);
 	}
 	else
-		GaussianBlur(img, img, cvSize(3, 3), 0);
+	{
+		bilateralFilter(img, out, 12, param.nColorThre * 1.5, 20);
+		img = out;
+	}
 
 	m_OriImg = img.clone();
 
@@ -56,20 +61,14 @@ CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param)
 	memset(m_bVisit, 0, sizeof(bool)*nSize);
 	memset(m_pIndexMap, 0, sizeof(unsigned int)*nSize);
 
-	//测试用;
-	static int i = 0;
-	char strName[256];
-	sprintf_s(strName, "d:\\%d.jpg", i++);
-	//imwrite(string(strName), dstImg);
-
-	//速度要求比较快时...
-	if (param.bFastMode)
-	{
-		Mat kernel = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5, -1, 0, -1, 0);
-		filter2D(img, img, img.depth(), kernel);
-	}
-
 	GetImgData(img);
+
+	return true;
+}
+
+CPaintImgDealer::CPaintImgDealer(Mat img, struInParam param)
+{
+	init(img, param);
 }
 
 
@@ -194,49 +193,6 @@ void CPaintImgDealer::PreProcess(Mat img){
 			img.at<Vec3b>(r, c) = v2;
 		}
 	}
-}
-
-void CPaintImgDealer::MainProc_bySeg(Mat & resultImg) {
-	Mat m;
-
-	//m = m_OriImg;
-	GaussianBlur(m_OriImg, m, cvSize(3, 3), 0);
-
-	Mat gray;
-	cvtColor(m, gray, CV_BGR2GRAY);
-
-	Mat grad_x, grad_y,grad;
-	Mat abs_grad_x, abs_grad_y;
-
-	int scale = 1;
-	int delta = 0;
-	int ddepth = CV_16S;
-	/// 求 X方向梯度
-	Sobel(gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
-	/// 求 Y方向梯度
-	Sobel(gray, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
-
-	convertScaleAbs(grad_x, abs_grad_x);
-	convertScaleAbs(grad_y, abs_grad_y);
-	addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
-
-	//namedWindow("sobel");
-	//imshow("sobel", grad);
-	//imwrite("d:\\grad.jpg", grad);
-
-	Mat bimg1,bimg2;
-	threshold(grad, bimg1, 0, 255, THRESH_OTSU);
-	namedWindow("otsu");
-	imshow("otsu", bimg1);
-	imwrite("ostu.jpg", bimg1);
-
-	//腐蚀二值图：
-	Mat kern = getStructuringElement(MORPH_ELLIPSE, Size(3, 3));
-	erode(bimg1, bimg1, kern);
-	dilate(bimg1, bimg1, kern);
-	imwrite("close.jpg", bimg1);
-
-	resultImg = grad;
 }
 
 
@@ -853,13 +809,14 @@ void CPaintImgDealer::GenBorderImg(string strFile,bool bWhiteBG,bool bThickBd) {
 	m.setTo(255);
 	Vec3b v(0, 0, 0);
 
-	//黑底;
+	//黑底白色边界;
 	if (!bWhiteBG) {
 		m.setTo(0);
 		v = Vec3b(255, 255, 255);
 	}
 
 	int nRow, nCol;
+	memset(m_bVisit, 0, sizeof(bool)*m_nH*m_nW);
 	for (int i = 0; i < m_nW * m_nH; i++)
 	{
 		nRow = i / m_nW;
@@ -869,6 +826,7 @@ void CPaintImgDealer::GenBorderImg(string strFile,bool bWhiteBG,bool bThickBd) {
 		//右边;
 		if (nCol + 1 < m_nW) {
 			if (m_pIndexMap[i + 1] != nCurInd)
+				//左右两侧注意边界，以免宽度为1的区域边界都合在一起了.
 				m.at<Vec3b>(nRow, nCol) = v;
 		}
 
@@ -1044,7 +1002,7 @@ void  CPaintImgDealer::MainProc() {
 			IndexMapErosion(vecLoc);
 
 			v = GetMeanV(vecLoc);
-			printf("Find Seed! Index=%d,Num=%d, Value=%d,%d,%d \n", nCurIndex, vecLoc.size(), v[2], v[1], v[0]);
+			//printf("Find Seed! Index=%d,Num=%d, Value=%d,%d,%d \n", nCurIndex, vecLoc.size(), v[2], v[1], v[0]);
 
 			//更新区域信息;如果当前是新的区域，则更新index;
 			//否则，返回与该区域类似的区域;
@@ -1069,8 +1027,9 @@ void  CPaintImgDealer::MainProc() {
 
 	//保存未处理residual区域的图;
 	string residualFile;
-	int len = m_param.strBorderFile.length();
-	residualFile = m_param.strBorderFile.substr(0, len - 4);
+	string strBorderFile(m_param.strBorderFile);
+	int len = strBorderFile.length();
+	residualFile = strBorderFile.substr(0, len - 4);
 	residualFile = residualFile + "_residual.jpg";
 	//GenMapImageByIndex(residualFile, 0, Vec3b(255, 255, 255));
 	//处理未有归属区域的;
